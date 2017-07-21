@@ -12,9 +12,9 @@ export class StyleManager {
         this.registeredStyle[name] = styleProps;
     }
 
-    public static registerStyleMap(prefix: string, styleMap: object) {
+    public static registerStyleMap(namespace: string, styleMap: { [name: string]: any }) {
         Object.keys(styleMap).forEach(name => {
-            this.registerStyle(`${prefix}-${name}`, styleMap[name]);
+            this.registerStyle(`${namespace}-${name}`, styleMap[name]);
         });
     }
 
