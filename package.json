@@ -1,0 +1,27 @@
+{
+  "name": "canvas2d-ui",
+  "version": "1.0.0",
+  "description": "Application framework for canvas2djs",
+  "main": "./dist/canvas2d-ui.js",
+  "types": "./declarations/index.d.ts",
+  "dependencies": {
+    "canvas2djs": "^2.4.7"
+  },
+  "devDependencies": {
+    "@alexlur/rollup-plugin-typescript": "^1.0.2",
+    "tslib": "^1.4.0",
+    "typescript": "^2.2.2"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": {
+    "name": "Todd Fon",
+    "email": "tilfon9017@gmail.com"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tilfon/canvas2d-ui.git"
+  }
+}

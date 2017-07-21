@@ -1,0 +1,9 @@
+<sprite styles="alert-layer-bg" :visible="visible">
+    <sprite styles="alert-layer-container">
+        <sprite :slot="title" />
+        <text styles="alert-layer-message">{{message}}</text>
+        <sprite styles="alert-layer-btn" @click="onclick()">
+            <text styles="alert-layer-btnlabel">确认</text>
+        </sprite>
+    </sprite>
+</sprite>

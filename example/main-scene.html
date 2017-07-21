@@ -1,0 +1,9 @@
+<sprite styles="main-scene-bg">
+    <sprite :include="title" />
+    <sprite :styles="['main-scene-box', count % 2 == 0 ? 'main-scene-redbox' : 'main-scene-whitebox']" @click="toggle()" :actions="{'main-scene-rotate': count % 2 == 0, 'main-scene-fade': count % 2 != 0}" :ref="box">
+        <text :styles="{'main-scene-title': true,'main-scene-whitetitle': count % 2 == 0, 'main-scene-redtitle': count % 2 !== 0}">Hello, {{message}}!</text>
+    </sprite>
+    <AlertLayer :ref="alertLayer" ::visible="alertVisible" :message="alertMessage" template="alert-layer" @confirm="show($event.message)">
+        <text :slot-to="title" alignX="4" alignY="4" fontColor="#fff" autoResizeWidth="true">This is the title!</text>
+    </AlertLayer>
+</sprite>

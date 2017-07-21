@@ -1,0 +1,19 @@
+<sprite styles="main-scene-bg">
+     <ScrollView alignX="4" top="0" bottom="0" percentWidth="0.5" verticalScroll="true">
+        <sprite styles="main-scene-box" bgColor="#f00" :for="i in arr" :top="210 * $index">
+            <text alignX="4" alignY="4" autoResizeWidth="true">box-{{i}}</text>
+        </sprite>
+    </ScrollView>
+    <AutoLayoutView verticalScroll="true" layout="1" bgColor="#ccc" margin="5" width="415" height="415" alignX="4" alignY="4">
+        <sprite styles="main-scene-box" :height="i % 2 == 0 ? 100 : 200" bgColor="#fff" :for="i in 13" />
+    </AutoLayoutView>
+    <AlertLayer :message="alertMessage" template="alert-layer" @confirm="removeList()" /> 
+    <AutoResizeView styles="test-scene-container" :margin="margin" :layout="layout" @click="toggleLayout()">
+        <sprite styles="test-scene-box" :visible="redBoxVisible">
+        </sprite>
+        <text autoResizeWidth="true">box-123</text>
+        <text autoResizeWidth="true">box-123</text>
+        <sprite styles="test-scene-box" :if="redBoxVisible">
+        </sprite>
+    </AutoResizeView>
+</sprite>
