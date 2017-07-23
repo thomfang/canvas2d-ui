@@ -24,6 +24,7 @@ export declare class Application {
     private loadingSceneTemplate;
     getStage(): Stage;
     setVersion(version: string): void;
+    getVersion(): string;
     createLoadingScene(options: LoadingSceneOptions): void;
     createStage(stageProps: StageProps): void;
     setIndexUrl(indexUrl: string): void;
@@ -62,7 +63,7 @@ export declare type LoadingSceneOptions = {
     resources: Resource[];
     onLoadStart?(loadingSceneComponent, componentName: string);
     onLoadingProgress?(loadingSceneComponent, componentName: string, loadedPercent: number);
-    onLoaded?(loadingSceneComponent, componentName: string);
+    onLoaded?(loadingSceneComponent, componentName: string, next: Function);
     onLoadingError?(loadingSceneComponent, type: ResourceType, url: string, version: string);
 };
 export interface IComponentWithRouter extends IComponent {

@@ -17,7 +17,7 @@ export declare class Watcher {
     removeCallback(callback: WatcherCallback): void;
     destroy(): void;
     private propertyChanged();
-    private flush;
+    private flush();
     private getValue();
     private beforeCallValueGetter();
     private afterCallValueGetter();

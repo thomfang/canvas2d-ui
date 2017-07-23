@@ -55,7 +55,7 @@ export class ViewManager {
             let directives: { [name: string]: any };
             Object.keys(node.attr).forEach(name => {
                 let value = node.attr[name];
-                if (BindingManager.isDirective(name) || reBindableAttr.test(name) || Parser.hasInterpolation(value)) {
+                if (BindingManager.isRegisteredDirective(name) || reBindableAttr.test(name) || Parser.hasInterpolation(value)) {
                     if (!directives) {
                         directives = {};
                     }
@@ -89,7 +89,7 @@ export class ViewManager {
             let directives: { [name: string]: any };
             Object.keys(node.attr).forEach(name => {
                 let value = node.attr[name];
-                if (BindingManager.isDirective(name) || reBindableAttr.test(name) || Parser.hasInterpolation(value)) {
+                if (BindingManager.isRegisteredDirective(name) || reBindableAttr.test(name) || Parser.hasInterpolation(value)) {
                     if (!directives) {
                         directives = {};
                     }
@@ -132,7 +132,7 @@ export class ViewManager {
             let directives: { [name: string]: any };
             Object.keys(node.attr).forEach(name => {
                 let value = node.attr[name];
-                if (BindingManager.isDirective(name) || reBindableAttr.test(name) || Parser.hasInterpolation(value)) {
+                if (BindingManager.isRegisteredDirective(name) || reBindableAttr.test(name) || Parser.hasInterpolation(value)) {
                     if (!directives) {
                         directives = {};
                     }
@@ -203,16 +203,10 @@ export class ViewManager {
             return;
         }
         if (attrName === 'actions') {
-            if (typeof attrValue !== 'object') {
-                return Utility.error(`Invalid action directive, value is not an object`, attrValue);
-            }
-            Object.keys(attrValue).forEach(name => {
-                if (!attrValue[name]) {
-                    return Action.stop(object, name);
-                }
-                let style: { queue: ActionQueue; startProps?: SpriteProps; repeatMode: ActionRepeatMode } = StyleManager.getStyleByName(name);
+            if (typeof attrValue === 'string') {
+                let style: { queue: ActionQueue; startProps?: SpriteProps; repeatMode: ActionRepeatMode } = StyleManager.getStyleByName(attrValue);
                 if (style == null) {
-                    return Utility.error(`Style "${name}" not found.`);
+                    return Utility.error(`Action "${attrValue}" not found.`);
                 }
                 if (style.startProps) {
                     object.setProps(style.startProps);
@@ -222,7 +216,29 @@ export class ViewManager {
                     action.setRepeatMode(style.repeatMode);
                 }
                 action.start();
-            });
+            }
+            else if (Object.prototype.toString.call(attrValue) === '[object Object]') {
+                Object.keys(attrValue).forEach(name => {
+                    if (!attrValue[name]) {
+                        return Action.stop(object, name);
+                    }
+                    let style: { queue: ActionQueue; startProps?: SpriteProps; repeatMode: ActionRepeatMode } = StyleManager.getStyleByName(name);
+                    if (style == null) {
+                        return Utility.error(`Action "${name}" not found.`);
+                    }
+                    if (style.startProps) {
+                        object.setProps(style.startProps);
+                    }
+                    let action = new Action(object, name).queue(style.queue);
+                    if (style.repeatMode != null) {
+                        action.setRepeatMode(style.repeatMode);
+                    }
+                    action.start();
+                });
+            }
+            else {
+                Utility.error(`Invalid action directive, value is not an object`, attrValue);
+            }
             return;
         }
 
@@ -271,8 +287,16 @@ export class ViewManager {
                 }
                 break;
             case String:
-                attrValue = String(attrValue);
-                object[attrName] = attrValue;
+                if (Object.prototype.toString.call(attrValue) === '[object Object]') {
+                    let values = Object.keys(attrValue).filter(name => !!attrValue[name]);
+                    if (values.length) {
+                        object[attrName] = values[values.length - 1];
+                    }
+                }
+                else {
+                    attrValue = String(attrValue);
+                    object[attrName] = attrValue;
+                }
                 break;
         }
     }

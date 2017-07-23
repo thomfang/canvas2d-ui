@@ -3,33 +3,105 @@ import { Layout } from './AutoLayoutView';
 import { Utility } from './Utility';
 
 export type AutoResizeViewProps = SpriteProps & {
-    margin?: number;
     layout?: Layout;
     alignChild?: AlignType;
+    marginLeft?: number;
+    marginTop?: number;
+    marginRight?: number;
+    marginBottom?: number;
+    verticalSpacing?: number;
+    horizentalSpacing?: number;
 }
 
 export class AutoResizeView extends Sprite<AutoResizeViewProps> {
 
-    protected _margin: number;
+    protected _isPending: boolean;
+
     protected _layout: Layout;
     protected _alignChild: AlignType;
+    protected _marginLeft: number;
+    protected _marginTop: number;
+    protected _marginRight: number;
+    protected _marginBottom: number;
+    protected _verticalSpacing: number;
+    protected _horizentalSpacing: number;
 
     constructor(props = {}) {
         super({
             ...props
         });
-        this._margin = this._margin || 0;
+        this._marginTop = this._marginTop || 0;
+        this._marginRight = this._marginRight || 0;
+        this._marginBottom = this._marginBottom || 0;
+        this._marginLeft = this._marginLeft || 0;
+        this._verticalSpacing = this._verticalSpacing || 0;
+        this._horizentalSpacing = this._horizentalSpacing || 0;
         this._layout = this._layout == null ? Layout.Horizontal : this._layout;
         this._alignChild = this._alignChild == null ? AlignType.CENTER : this._alignChild;
     }
 
-    get margin() {
-        return this._margin;
+    get marginLeft() {
+        return this._marginLeft;
     }
 
-    set margin(value: number) {
-        if (value !== this._margin) {
-            this._margin = value;
+    set marginLeft(value: number) {
+        if (value !== this._marginLeft) {
+            this._marginLeft = value;
+            Utility.nextTick(this.reLayout, this);
+        }
+    }
+
+    get marginRight() {
+        return this._marginRight;
+    }
+
+    set marginRight(value: number) {
+        if (value !== this._marginRight) {
+            this._marginRight = value;
+            Utility.nextTick(this.reLayout, this);
+        }
+    }
+
+    get marginBottom() {
+        return this._marginBottom;
+    }
+
+    set marginBottom(value: number) {
+        if (value !== this._marginBottom) {
+            this._marginBottom = value;
+            Utility.nextTick(this.reLayout, this);
+        }
+    }
+
+    get marginTop() {
+        return this._marginTop;
+    }
+
+    set marginTop(value: number) {
+        if (value !== this._marginTop) {
+            this._marginTop = value;
+            Utility.nextTick(this.reLayout, this);
+        }
+    }
+
+    get verticalSpacing() {
+        return this._verticalSpacing;
+    }
+
+    set verticalSpacing(value: number) {
+        if (value !== this._verticalSpacing) {
+            this._verticalSpacing = value;
+            Utility.nextTick(this.reLayout, this);
+        }
+    }
+
+    get horizentalSpacing() {
+        return this._horizentalSpacing;
+    }
+
+    set horizentalSpacing(value: number) {
+        if (value !== this._horizentalSpacing) {
+            this._horizentalSpacing = value;
             Utility.nextTick(this.reLayout, this);
         }
     }
@@ -67,18 +139,37 @@ export class AutoResizeView extends Sprite<AutoResizeViewProps> {
         Utility.nextTick(this.reLayout, this);
     }
 
-    private reLayout() {
-        if (!this.children || !this.children.length) {
-            this.width = 0;
-            this.height = 0;
+    protected _onChildResize() {
+        if (this._isPending) {
+            super._onChildResize();
+        }
+        else {
+            Utility.nextTick(this.reLayout, this);
+        }
+    }
+
+    protected reLayout() {
+        if (this._isPending) {
             return;
         }
 
-        const { layout, margin, alignChild, children } = this;
-        let height = 0;
-        let width = 0;
+        this._isPending = true;
+
+        if (!this.children || !this.children.length) {
+            this.width = 0;
+            this.height = 0;
+            this._isPending = false;
+            return;
+        }
+
+        const { layout, alignChild, children, marginLeft, marginRight, marginBottom, marginTop, verticalSpacing, horizentalSpacing } = this;
+        let height: number;
+        let width: number;
+        let count = 0;
 
         if (layout === Layout.Horizontal) {
+            width = marginLeft;
+            height = 0;
             children.forEach((sprite, index) => {
                 if (sprite.width === 0 || !sprite.visible) {
                     return;
@@ -86,34 +177,43 @@ export class AutoResizeView extends Sprite<AutoResizeViewProps> {
                 if (sprite.height > height) {
                     height = sprite.height;
                 }
-                sprite.x = width + margin + (<any>sprite)._originPixelX;
-                width += sprite.width + margin;
+                sprite.x = width + (<any>sprite)._originPixelX + (count > 0 ? horizentalSpacing : 0);
+                width += sprite.width;
+                count += 1;
             });
 
-            if (width != 0) {
-                this.width = width + margin;
+            if (width > marginLeft) {
+                this.width = width + marginRight;
+            }
+            else {
+                this.width = 0;
             }
             if (height != 0) {
-                height += margin * 2;
-                this.height = height;
                 if (alignChild === AlignType.TOP) {
                     this.children.forEach(sprite => {
-                        sprite.y = margin + (<any>sprite)._originPixelY;
+                        sprite.y = marginTop + (<any>sprite)._originPixelY;
                     });
                 }
                 else if (alignChild === AlignType.BOTTOM) {
                     this.children.forEach(sprite => {
-                        sprite.y = height - margin - sprite.height + (<any>sprite)._originPixelY;
+                        sprite.y = marginTop + height - sprite.height + (<any>sprite)._originPixelY;
                     });
                 }
                 else {
                     this.children.forEach(sprite => {
-                        sprite.y = (height - sprite.height) * 0.5 + (<any>sprite)._originPixelY;
+                        sprite.y = marginTop + (height - sprite.height) * 0.5 + (<any>sprite)._originPixelY;
                     });
                 }
+                height += marginTop + marginBottom;
+                this.height = height;
+            }
+            else {
+                this.height = 0;
             }
         }
         else if (layout === Layout.Vertical) {
+            width = 0;
+            height = marginTop;
             children.forEach((sprite, index) => {
                 if (sprite.height === 0 || !sprite.visible) {
                     return;
@@ -121,32 +221,41 @@ export class AutoResizeView extends Sprite<AutoResizeViewProps> {
                 if (sprite.width > width) {
                     width = sprite.width;
                 }
-                sprite.y = height + margin + (<any>sprite)._originPixelY;
-                height += sprite.height + margin;
+                sprite.y = height  + (<any>sprite)._originPixelY + (count > 0 ? verticalSpacing : 0);
+                height += sprite.height;
+                count += 1;
             });
 
-            if (height != 0) {
-                this.height = height + margin;
+            if (height > marginTop) {
+                this.height = height + marginBottom;
+            }
+            else {
+                this.height = 0;
             }
             if (width != 0) {
-                width += margin * 2;
-                this.width = width;
                 if (alignChild === AlignType.LEFT) {
                     this.children.forEach(sprite => {
-                        sprite.x = margin + (<any>sprite)._originPixelX;
+                        sprite.x = marginLeft + (<any>sprite)._originPixelX;
                     });
                 }
                 else if (alignChild === AlignType.RIGHT) {
                     this.children.forEach(sprite => {
-                        sprite.x = width - margin - sprite.width + (<any>sprite)._originPixelX;
+                        sprite.x = marginLeft + width - sprite.width + (<any>sprite)._originPixelX;
                     });
                 }
                 else {
                     this.children.forEach(sprite => {
-                        sprite.x = (width - sprite.width) * 0.5 + (<any>sprite)._originPixelX;
+                        sprite.x = marginLeft + (width - sprite.width) * 0.5 + (<any>sprite)._originPixelX;
                     });
                 }
+                width += marginLeft + marginRight;
+                this.width = width;
+            }
+            else {
+                this.width = 0;
             }
         }
+
+        this._isPending = false;
     }
 }

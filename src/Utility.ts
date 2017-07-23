@@ -32,6 +32,7 @@ export class Utility {
             this.UID_OF_NULL = this.getObjectUid({});
             this.UID_OF_TRUE = this.getObjectUid({});
             this.UID_OF_UNDEFINED = this.getObjectUid({});
+            this.isUidInited = true;
         }
         if (target === null) {
             return this.UID_OF_NULL;
@@ -92,14 +93,18 @@ export class Utility {
         let index = arr.indexOf(item);
         if (index > -1) {
             arr.splice(index, 1);
+            return true;
         }
+        return false;
     }
 
     public static addEnsureUniqueArrayItem(item, arr: any[]) {
         let index = arr.indexOf(item);
         if (index < 0) {
             arr.push(item);
+            return true;
         }
+        return false
     }
 
     public static createProxy(target: object, property: string, source: object) {

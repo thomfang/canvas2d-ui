@@ -85,18 +85,20 @@ var Example;
             this.redBoxVisible = true;
             this.layout = canvas2dUI.Layout.Horizontal;
             this.margin = 5;
+            this.num = 10;
         }
         TestScene.prototype.removeList = function () {
             this.arr.splice(1, 1);
         };
         TestScene.prototype.toggleLayout = function () {
-            // if (this.layout === canvas2dUI.Layout.Horizontal) {
-            //     this.layout = canvas2dUI.Layout.Vertical;
-            // }
-            // else {
-            //     this.layout = canvas2dUI.Layout.Horizontal;
-            // }
+            if (this.layout === canvas2dUI.Layout.Horizontal) {
+                this.layout = canvas2dUI.Layout.Vertical;
+            }
+            else {
+                this.layout = canvas2dUI.Layout.Horizontal;
+            }
             this.margin += 1;
+            this.num *= 10;
         };
         return TestScene;
     }());
@@ -115,6 +117,9 @@ var Example;
     __decorate([
         canvas2dUI.Property(Number)
     ], TestScene.prototype, "margin", void 0);
+    __decorate([
+        canvas2dUI.Property(Number)
+    ], TestScene.prototype, "num", void 0);
     TestScene = __decorate([
         canvas2dUI.Component("TestScene")
     ], TestScene);
@@ -141,7 +146,7 @@ var Example;
         },
         onLoadingProgress: function (loadingSceneComponent, c, percent) {
             loadingSceneComponent.loadedPercent = percent;
-        }
+        },
     });
     Example.app.setIndexUrl("/main/123");
     Example.app.setVersion("1.0.0");
@@ -199,7 +204,10 @@ var Example;
     });
     canvas2dUI.StyleManager.registerStyleMap("test-scene", {
         container: {
-            margin: 5,
+            marginLeft: 5,
+            marginRight: 5,
+            marginBottom: 5,
+            marginTop: 5,
             bgColor: 0xfff,
             alignChild: canvas2d.AlignType.CENTER,
             layout: canvas2dUI.Layout.Vertical,

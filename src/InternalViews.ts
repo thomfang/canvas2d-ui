@@ -17,7 +17,7 @@ var SpriteProperties = {
     radius: Number,
     borderWidth: Number,
     borderColor: [String, Number],
-    texture: [String, Texture],
+    texture: String,
     rotation: Number,
     opacity: Number,
     visible: Boolean,
@@ -78,12 +78,18 @@ var ScrollViewProperties = {
 var AutoLayoutViewProperties = {
     ...ScrollViewProperties,
     layout: Number,
-    margin: Number,
+    verticalSpacing: Number,
+    horizentalSpacing: Number,
 };
 var AutoResizeViewProperties = {
     ...SpriteProperties,
     layout: Number,
-    margin: Number,
+    marginLeft: Number,
+    marginRight: Number,
+    marginTop: Number,
+    marginBottom: Number,
+    verticalSpacing: Number,
+    horizentalSpacing: Number,
     alignChild: Number,
 };
 

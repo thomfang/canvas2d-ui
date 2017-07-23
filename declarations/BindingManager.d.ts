@@ -1,12 +1,13 @@
 import { IComponent } from './ComponentManager';
 import { VirtualView } from './ViewManager';
 export declare class BindingManager {
+    private static activedDirectives;
     private static terminalDirectives;
     private static registeredDirectives;
     private static componentDirectives;
     static registerDirective(name: string, directiveCtor: Function, isTerminal?: boolean, priority?: number): void;
     static getHighestPriorityTerminal(target: any): string;
-    static isDirective(name: string): boolean;
+    static isRegisteredDirective(name: string): boolean;
     static createBinding(component: IComponent, view: VirtualView, context?: any): IDirective[];
     static removeBinding(component: IComponent): void;
     static createDirective(ctor: Function, expression: string, component: IComponent, view: any, context: any): void;

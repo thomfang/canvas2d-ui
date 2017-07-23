@@ -71,10 +71,10 @@ export class Watcher {
     }
 
     private propertyChanged(): void {
-        Utility.nextTick(this.flush);
+        Utility.nextTick(this.flush, this);
     }
 
-    private flush = () => {
+    private flush() {
         if (!this.isActived) {
             return;
         }

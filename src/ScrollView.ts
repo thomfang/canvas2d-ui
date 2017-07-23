@@ -79,14 +79,20 @@ export class ScrollView extends Sprite<ScrollViewProps> {
         return { ...this.size };
     }
 
-    protected _resizeWidth() {
-        super._resizeWidth();
-        Utility.nextTick(this.measureViewportSize, this);
-    }
+    // protected _resizeWidth() {
+    //     super._resizeWidth();
+    //     Utility.nextTick(this.measureViewportSize, this);
+    // }
 
-    protected _resizeHeight() {
-        super._resizeHeight();
+    // protected _resizeHeight() {
+    //     super._resizeHeight();
+    //     Utility.nextTick(this.measureViewportSize, this);
+    // }
+
+    protected _onChildResize() {
+        // this.measureViewportSize();
         Utility.nextTick(this.measureViewportSize, this);
+        super._onChildResize();
     }
 
     protected measureViewportSize() {

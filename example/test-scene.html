@@ -4,11 +4,11 @@
             <text alignX="4" alignY="4" autoResizeWidth="true">box-{{i}}</text>
         </sprite>
     </ScrollView>
-    <AutoLayoutView verticalScroll="true" layout="1" bgColor="#ccc" margin="5" width="415" height="415" alignX="4" alignY="4">
+    <AutoLayoutView verticalScroll="true" layout="1" bgColor="#ccc" verticalSpacing="5" horizentalSpacing="5" width="405" height="405" alignX="4" alignY="4">
         <sprite styles="main-scene-box" :height="i % 2 == 0 ? 100 : 200" bgColor="#fff" :for="i in 13" />
     </AutoLayoutView>
     <AlertLayer :message="alertMessage" template="alert-layer" @confirm="removeList()" /> 
-    <AutoResizeView styles="test-scene-container" :margin="margin" :layout="layout" @click="toggleLayout()">
+    <AutoResizeView styles="test-scene-container" :marginTop="margin" :layout="layout" @click="toggleLayout()">
         <sprite styles="test-scene-box" :visible="redBoxVisible">
         </sprite>
         <text autoResizeWidth="true">box-123</text>

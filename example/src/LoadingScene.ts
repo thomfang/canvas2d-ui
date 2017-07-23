@@ -82,18 +82,22 @@ namespace Example {
         @canvas2dUI.Property(Number)
         margin = 5;
 
+        @canvas2dUI.Property(Number)
+        num = 10;
+
         removeList() {
             this.arr.splice(1, 1);
         }
 
         toggleLayout() {
-            // if (this.layout === canvas2dUI.Layout.Horizontal) {
-            //     this.layout = canvas2dUI.Layout.Vertical;
-            // }
-            // else {
-            //     this.layout = canvas2dUI.Layout.Horizontal;
-            // }
+            if (this.layout === canvas2dUI.Layout.Horizontal) {
+                this.layout = canvas2dUI.Layout.Vertical;
+            }
+            else {
+                this.layout = canvas2dUI.Layout.Horizontal;
+            }
             this.margin += 1;
+            this.num *= 10
         }
     }
 
@@ -121,7 +125,10 @@ namespace Example {
         },
         onLoadingProgress: (loadingSceneComponent: LoadingScene, c, percent) => {
             loadingSceneComponent.loadedPercent = percent;
-        }
+        },
+        // onLoaded: (c, n, next) => {
+        //     setTimeout(next, 3000);
+        // }
     });
     app.setIndexUrl("/main/123");
     app.setVersion("1.0.0");

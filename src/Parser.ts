@@ -12,7 +12,7 @@ export class Parser {
             return Utility.error(`Invalid expression "${exp}" for parsing to a getter.`);
         }
         try {
-            return new Function(`try{with(this) {return ${exp}}}catch(e){console.error(e)}`);
+            return new Function(`try{with(this) {return ${exp}}}catch(e){ }`);
         } catch (e) {
             Utility.error(`Error parsing expression "${exp}" to a getter,`, e);
         }
@@ -23,7 +23,7 @@ export class Parser {
             return Utility.error(`Invalid expression "${exp}" for parsing to a setter.`);
         }
         try {
-            return new Function("__setterValue__", `try{with(this) {return ${exp} = __setterValue__}}catch(e){console.error(e)}`);
+            return new Function("__setterValue__", `try{with(this) {return ${exp} = __setterValue__}}catch(e){ }`);
         } catch (e) {
             Utility.error(`Error parsing expression "${exp}" to a setter,`, e);
         }
@@ -46,7 +46,7 @@ export class Parser {
             if (i > index) {
                 tokens.push(`"${str.slice(index, i)}"`);
             }
-            tokens.push(exp.trim());
+            tokens.push('(' + exp.trim() + ')');
             index = i + $0.length;
 
             return $0;
@@ -57,7 +57,7 @@ export class Parser {
         }
 
         try {
-            return new Function(`try{with(this) {return ${tokens.join('+')}}}catch(e){console.error(e)}`);
+            return new Function(`try{with(this) {return ${tokens.join('+')}}}catch(e){ }`);
         } catch (e) {
             Utility.error(`Error parsing expression "${expression}" to an interpolation getter, `, e);
         }
@@ -68,7 +68,7 @@ export class Parser {
             return Utility.error(`Invalid expression "${exp}" for parsing to a handler.`);
         }
         try {
-            return new Function(nameOfGlobal, nameOfEvent, nameOfElement, `try{ with (this) { return ${exp} } } catch (e) { console.error(e) } `);
+            return new Function(nameOfGlobal, nameOfEvent, nameOfElement, `try{ with (this) { ${exp} } } catch (e) {  } `);
         } catch (e) {
             Utility.error(`Error parsing expression "${exp}" to a handler, `, e);
         }

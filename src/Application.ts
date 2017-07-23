@@ -10,7 +10,7 @@ const ContainerProps: SpriteProps = { left: 0, right: 0, top: 0, bottom: 0 };
 
 export class Application {
     private onLoadStart: (loadingSceneComponent: any, componentName: string) => any;
-    private onLoaded: (loadingSceneComponent: any, componentName: string) => any;
+    private onLoaded: (loadingSceneComponent: any, componentName: string, next: Function) => any;
     private onLoadingProgress: (loadingSceneComponent: any, componentName: string, loadedPercent: number) => any;
     private onLoadingError: (loadingSceneComponent: any, type: ResourceType, url: string, version: string) => any;
 
@@ -43,12 +43,16 @@ export class Application {
         this.version = version;
     }
 
+    public getVersion() {
+        return this.version;
+    }
+
     public createLoadingScene(options: LoadingSceneOptions) {
         this.loadingSceneResources = options.resources;
         this.loadingSceneTemplate = options.template;
         this.onLoadingError = options.onLoadingError;
         this.onLoadingProgress = options.onLoadingProgress;
-        this.onLoaded = options.onLoaded;
+        this.onLoaded = options.onLoaded || ((a, b, next) => next());
         this.onLoadStart = options.onLoadStart;
         this.loadingSceneComponent = ComponentManager.createComponentByName(options.component);
     }
@@ -183,11 +187,11 @@ export class Application {
 
             Loader.load(router.resources, this.version, () => {
                 Utility.addEnsureUniqueArrayItem(router.component, this.loadedComponents);
-                this.onLoaded && this.onLoaded(this.loadingSceneComponent, router.component);
-
-                if (this.currRouter === router) {
-                    this.createComponent(router);
-                }
+                this.onLoaded(this.loadingSceneComponent, router.component, () => {
+                    if (this.currRouter === router) {
+                        this.createComponent(router);
+                    }
+                });
             }, (loadedPercent: number) => {
                 this.onLoadingProgress && this.onLoadingProgress(this.loadingSceneComponent, router.component, loadedPercent);
             }, (type: ResourceType, url: string, version: string) => {
@@ -276,7 +280,7 @@ export type LoadingSceneOptions = {
     resources: Resource[];
     onLoadStart?(loadingSceneComponent, componentName: string);
     onLoadingProgress?(loadingSceneComponent, componentName: string, loadedPercent: number);
-    onLoaded?(loadingSceneComponent, componentName: string);
+    onLoaded?(loadingSceneComponent, componentName: string, next: Function);
     onLoadingError?(loadingSceneComponent, type: ResourceType, url: string, version: string);
 }
 

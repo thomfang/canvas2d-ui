@@ -1,5 +1,5 @@
 /**
- * canvas2d-ui v1.0.0
+ * canvas2d-ui v1.0.1
  * Copyright (c) 2017-present Todd Fon <tilfon9017@gmail.com>
  * All rights reserved.
  */
@@ -45,6 +45,7 @@ var Utility = (function () {
             this.UID_OF_NULL = this.getObjectUid({});
             this.UID_OF_TRUE = this.getObjectUid({});
             this.UID_OF_UNDEFINED = this.getObjectUid({});
+            this.isUidInited = true;
         }
         if (target === null) {
             return this.UID_OF_NULL;
@@ -97,13 +98,17 @@ var Utility = (function () {
         var index = arr.indexOf(item);
         if (index > -1) {
             arr.splice(index, 1);
+            return true;
         }
+        return false;
     };
     Utility.addEnsureUniqueArrayItem = function (item, arr) {
         var index = arr.indexOf(item);
         if (index < 0) {
             arr.push(item);
+            return true;
         }
+        return false;
     };
     Utility.createProxy = function (target, property, source) {
         if (this.hasProxy(target, property)) {
@@ -653,7 +658,7 @@ var Parser = (function () {
             return Utility.error("Invalid expression \"" + exp + "\" for parsing to a getter.");
         }
         try {
-            return new Function("try{with(this) {return " + exp + "}}catch(e){console.error(e)}");
+            return new Function("try{with(this) {return " + exp + "}}catch(e){ }");
         }
         catch (e) {
             Utility.error("Error parsing expression \"" + exp + "\" to a getter,", e);
@@ -664,7 +669,7 @@ var Parser = (function () {
             return Utility.error("Invalid expression \"" + exp + "\" for parsing to a setter.");
         }
         try {
-            return new Function("__setterValue__", "try{with(this) {return " + exp + " = __setterValue__}}catch(e){console.error(e)}");
+            return new Function("__setterValue__", "try{with(this) {return " + exp + " = __setterValue__}}catch(e){ }");
         }
         catch (e) {
             Utility.error("Error parsing expression \"" + exp + "\" to a setter,", e);
@@ -685,7 +690,7 @@ var Parser = (function () {
             if (i > index) {
                 tokens.push("\"" + str.slice(index, i) + "\"");
             }
-            tokens.push(exp.trim());
+            tokens.push('(' + exp.trim() + ')');
             index = i + $0.length;
             return $0;
         });
@@ -693,7 +698,7 @@ var Parser = (function () {
             tokens.push("\"" + str.slice(index) + "\"");
         }
         try {
-            return new Function("try{with(this) {return " + tokens.join('+') + "}}catch(e){console.error(e)}");
+            return new Function("try{with(this) {return " + tokens.join('+') + "}}catch(e){ }");
         }
         catch (e) {
             Utility.error("Error parsing expression \"" + expression + "\" to an interpolation getter, ", e);
@@ -704,7 +709,7 @@ var Parser = (function () {
             return Utility.error("Invalid expression \"" + exp + "\" for parsing to a handler.");
         }
         try {
-            return new Function(nameOfGlobal, nameOfEvent, nameOfElement, "try{ with (this) { return " + exp + " } } catch (e) { console.error(e) } ");
+            return new Function(nameOfGlobal, nameOfEvent, nameOfElement, "try{ with (this) { " + exp + " } } catch (e) {  } ");
         }
         catch (e) {
             Utility.error("Error parsing expression \"" + exp + "\" to a handler, ", e);
@@ -974,10 +979,10 @@ var StyleManager = (function () {
         }
         this.registeredStyle[name] = styleProps;
     };
-    StyleManager.registerStyleMap = function (prefix, styleMap) {
+    StyleManager.registerStyleMap = function (namespace, styleMap) {
         var _this = this;
         Object.keys(styleMap).forEach(function (name) {
-            _this.registerStyle(prefix + "-" + name, styleMap[name]);
+            _this.registerStyle(namespace + "-" + name, styleMap[name]);
         });
     };
     StyleManager.getStyleByName = function (name) {
@@ -1313,13 +1318,18 @@ var ScrollView = (function (_super) {
     ScrollView.prototype.getScrollerSize = function () {
         return __assign({}, this.size);
     };
-    ScrollView.prototype._resizeWidth = function () {
-        _super.prototype._resizeWidth.call(this);
+    // protected _resizeWidth() {
+    //     super._resizeWidth();
+    //     Utility.nextTick(this.measureViewportSize, this);
+    // }
+    // protected _resizeHeight() {
+    //     super._resizeHeight();
+    //     Utility.nextTick(this.measureViewportSize, this);
+    // }
+    ScrollView.prototype._onChildResize = function () {
+        // this.measureViewportSize();
         Utility.nextTick(this.measureViewportSize, this);
-    };
-    ScrollView.prototype._resizeHeight = function () {
-        _super.prototype._resizeHeight.call(this);
-        Utility.nextTick(this.measureViewportSize, this);
+        _super.prototype._onChildResize.call(this);
     };
     ScrollView.prototype.measureViewportSize = function () {
         if (!this.stage) {
@@ -1362,8 +1372,9 @@ var AutoLayoutView = (function (_super) {
     function AutoLayoutView(props) {
         if (props === void 0) { props = {}; }
         var _this = _super.call(this, __assign({}, props)) || this;
-        _this._margin = _this._margin || 0;
         _this._layout = _this._layout == null ? exports.Layout.Horizontal : _this._layout;
+        _this._verticalSpacing = _this._verticalSpacing || 0;
+        _this._horizentalSpacing = _this._horizentalSpacing || 0;
         _this._alignChild = _this._alignChild == null ? canvas2djs.AlignType.CENTER : _this._alignChild;
         _this.scroller.addChild = function () {
             var args = [];
@@ -1409,13 +1420,26 @@ var AutoLayoutView = (function (_super) {
         enumerable: true,
         configurable: true
     });
-    Object.defineProperty(AutoLayoutView.prototype, "margin", {
+    Object.defineProperty(AutoLayoutView.prototype, "verticalSpacing", {
         get: function () {
-            return this._margin;
+            return this._verticalSpacing;
         },
         set: function (value) {
-            if (value !== this._margin) {
-                this._margin = value;
+            if (value !== this._verticalSpacing) {
+                this._verticalSpacing = value;
+                Utility.nextTick(this.reLayout, this);
+            }
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(AutoLayoutView.prototype, "horizentalSpacing", {
+        get: function () {
+            return this._horizentalSpacing;
+        },
+        set: function (value) {
+            if (value !== this._horizentalSpacing) {
+                this._horizentalSpacing = value;
                 Utility.nextTick(this.reLayout, this);
             }
         },
@@ -1430,13 +1454,18 @@ var AutoLayoutView = (function (_super) {
         canvas2djs.Sprite.prototype.removeChild.call(this.scroller, target);
         Utility.nextTick(this.reLayout, this);
     };
-    AutoLayoutView.prototype._resizeWidth = function () {
-        canvas2djs.Sprite.prototype._resizeWidth.call(this);
+    // protected _resizeWidth() {
+    //     (Sprite.prototype as any)._resizeWidth.call(this);
+    //     Utility.nextTick(this.reLayout, this);
+    // }
+    // protected _resizeHeight() {
+    //     (Sprite.prototype as any)._resizeHeight.call(this);
+    //     Utility.nextTick(this.reLayout, this);
+    // }
+    AutoLayoutView.prototype._onChildResize = function () {
+        // this.reLayout();
         Utility.nextTick(this.reLayout, this);
-    };
-    AutoLayoutView.prototype._resizeHeight = function () {
-        canvas2djs.Sprite.prototype._resizeHeight.call(this);
-        Utility.nextTick(this.reLayout, this);
+        canvas2djs.Sprite.prototype._onChildResize.call(this);
     };
     AutoLayoutView.prototype.reLayout = function () {
         var _this = this;
@@ -1444,38 +1473,41 @@ var AutoLayoutView = (function (_super) {
             return;
         }
         var children = this.scroller.children;
-        var margin = this.margin;
-        var width = this.width;
-        var height = this.height;
+        var _a = this, width = _a.width, height = _a.height, verticalSpacing = _a.verticalSpacing, horizentalSpacing = _a.horizentalSpacing;
         var maxHeight = 0;
         var maxWidth = 0;
-        var x = margin;
-        var y = margin;
+        var x = 0;
+        var y = 0;
         var beginIndex = 0;
+        var count = 0;
+        var prevExist;
         if (this.layout === exports.Layout.Horizontal) {
             children.forEach(function (sprite, index) {
                 if (sprite.width === 0) {
                     return;
                 }
-                var right = x + sprite.width;
+                var spacing = (prevExist ? horizentalSpacing : 0);
+                var right = x + sprite.width + spacing;
                 if (right <= width || index === 0) {
-                    sprite.x = x + sprite._originPixelX;
-                    // sprite.y = y + (sprite as any)._originPixelY;
-                    x = right + margin;
+                    sprite.x = x + sprite._originPixelX + spacing;
+                    x = right;
+                    prevExist = true;
                 }
                 else {
+                    y += count > 0 ? verticalSpacing : 0;
                     _this.alignChildHorizental(beginIndex, index - 1, children, y, maxHeight);
                     beginIndex = index;
-                    y += maxHeight + margin;
-                    x = margin * 2 + sprite.width;
-                    sprite.x = margin + sprite._originPixelX;
-                    // sprite.y = y + (sprite as any)._originPixelY;
+                    y += maxHeight;
+                    x = sprite.width;
+                    sprite.x = sprite._originPixelX;
                     maxHeight = 0;
+                    count += 1;
                 }
                 if (sprite.height > maxHeight) {
                     maxHeight = sprite.height;
                 }
             });
+            y += count > 0 ? verticalSpacing : 0;
             this.alignChildHorizental(beginIndex, children.length - 1, children, y, maxHeight);
         }
         else if (this.layout === exports.Layout.Vertical) {
@@ -1483,39 +1515,34 @@ var AutoLayoutView = (function (_super) {
                 if (sprite.height === 0) {
                     return;
                 }
+                var spacing = (prevExist ? verticalSpacing : 0);
                 var bottom = y + sprite.height;
                 if (bottom <= height || index === 0) {
-                    sprite.y = y + sprite._originPixelY;
-                    // sprite.x = x + (sprite as any)._originPixelX;
-                    y = bottom + margin;
+                    sprite.y = y + sprite._originPixelY + spacing;
+                    y = bottom;
+                    prevExist = true;
                 }
                 else {
+                    x += count > 0 ? horizentalSpacing : 0;
                     _this.alignChildVirtical(beginIndex, index - 1, children, x, maxWidth);
                     beginIndex = index;
-                    x += maxWidth + margin;
-                    y = margin * 2 + sprite.height;
-                    sprite.y = margin + sprite._originPixelY;
-                    // sprite.x = x + (sprite as any)._originPixelX;
+                    x += maxWidth;
+                    y = sprite.height;
+                    sprite.y = sprite._originPixelY;
                     maxWidth = 0;
+                    count += 1;
                 }
                 if (sprite.width > maxWidth) {
                     maxWidth = sprite.width;
                 }
             });
+            x += count > 0 ? horizentalSpacing : 0;
             this.alignChildHorizental(beginIndex, children.length - 1, children, x, maxWidth);
         }
         else {
             Utility.warn("Unknow layout", this.layout);
         }
         this.measureViewportSize();
-        if (margin !== 0) {
-            if (this.layout === exports.Layout.Horizontal && this.size.height !== 0) {
-                this.size.height += margin;
-            }
-            else if (this.layout === exports.Layout.Vertical && this.size.width !== 0) {
-                this.size.width += margin;
-            }
-        }
     };
     AutoLayoutView.prototype.alignChildVirtical = function (begin, end, sprites, x, width) {
         if (end < begin) {
@@ -1571,18 +1598,88 @@ var AutoResizeView = (function (_super) {
     function AutoResizeView(props) {
         if (props === void 0) { props = {}; }
         var _this = _super.call(this, __assign({}, props)) || this;
-        _this._margin = _this._margin || 0;
+        _this._marginTop = _this._marginTop || 0;
+        _this._marginRight = _this._marginRight || 0;
+        _this._marginBottom = _this._marginBottom || 0;
+        _this._marginLeft = _this._marginLeft || 0;
+        _this._verticalSpacing = _this._verticalSpacing || 0;
+        _this._horizentalSpacing = _this._horizentalSpacing || 0;
         _this._layout = _this._layout == null ? exports.Layout.Horizontal : _this._layout;
         _this._alignChild = _this._alignChild == null ? canvas2djs.AlignType.CENTER : _this._alignChild;
         return _this;
     }
-    Object.defineProperty(AutoResizeView.prototype, "margin", {
+    Object.defineProperty(AutoResizeView.prototype, "marginLeft", {
         get: function () {
-            return this._margin;
+            return this._marginLeft;
         },
         set: function (value) {
-            if (value !== this._margin) {
-                this._margin = value;
+            if (value !== this._marginLeft) {
+                this._marginLeft = value;
+                Utility.nextTick(this.reLayout, this);
+            }
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(AutoResizeView.prototype, "marginRight", {
+        get: function () {
+            return this._marginRight;
+        },
+        set: function (value) {
+            if (value !== this._marginRight) {
+                this._marginRight = value;
+                Utility.nextTick(this.reLayout, this);
+            }
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(AutoResizeView.prototype, "marginBottom", {
+        get: function () {
+            return this._marginBottom;
+        },
+        set: function (value) {
+            if (value !== this._marginBottom) {
+                this._marginBottom = value;
+                Utility.nextTick(this.reLayout, this);
+            }
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(AutoResizeView.prototype, "marginTop", {
+        get: function () {
+            return this._marginTop;
+        },
+        set: function (value) {
+            if (value !== this._marginTop) {
+                this._marginTop = value;
+                Utility.nextTick(this.reLayout, this);
+            }
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(AutoResizeView.prototype, "verticalSpacing", {
+        get: function () {
+            return this._verticalSpacing;
+        },
+        set: function (value) {
+            if (value !== this._verticalSpacing) {
+                this._verticalSpacing = value;
+                Utility.nextTick(this.reLayout, this);
+            }
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(AutoResizeView.prototype, "horizentalSpacing", {
+        get: function () {
+            return this._horizentalSpacing;
+        },
+        set: function (value) {
+            if (value !== this._horizentalSpacing) {
+                this._horizentalSpacing = value;
                 Utility.nextTick(this.reLayout, this);
             }
         },
@@ -1624,16 +1721,32 @@ var AutoResizeView = (function (_super) {
         _super.prototype.removeChild.call(this, target);
         Utility.nextTick(this.reLayout, this);
     };
+    AutoResizeView.prototype._onChildResize = function () {
+        if (this._isPending) {
+            _super.prototype._onChildResize.call(this);
+        }
+        else {
+            Utility.nextTick(this.reLayout, this);
+        }
+    };
     AutoResizeView.prototype.reLayout = function () {
+        if (this._isPending) {
+            return;
+        }
+        this._isPending = true;
         if (!this.children || !this.children.length) {
             this.width = 0;
             this.height = 0;
+            this._isPending = false;
             return;
         }
-        var _a = this, layout = _a.layout, margin = _a.margin, alignChild = _a.alignChild, children = _a.children;
-        var height = 0;
-        var width = 0;
+        var _a = this, layout = _a.layout, alignChild = _a.alignChild, children = _a.children, marginLeft = _a.marginLeft, marginRight = _a.marginRight, marginBottom = _a.marginBottom, marginTop = _a.marginTop, verticalSpacing = _a.verticalSpacing, horizentalSpacing = _a.horizentalSpacing;
+        var height;
+        var width;
+        var count = 0;
         if (layout === exports.Layout.Horizontal) {
+            width = marginLeft;
+            height = 0;
             children.forEach(function (sprite, index) {
                 if (sprite.width === 0 || !sprite.visible) {
                     return;
@@ -1641,33 +1754,42 @@ var AutoResizeView = (function (_super) {
                 if (sprite.height > height) {
                     height = sprite.height;
                 }
-                sprite.x = width + margin + sprite._originPixelX;
-                width += sprite.width + margin;
+                sprite.x = width + sprite._originPixelX + (count > 0 ? horizentalSpacing : 0);
+                width += sprite.width;
+                count += 1;
             });
-            if (width != 0) {
-                this.width = width + margin;
+            if (width > marginLeft) {
+                this.width = width + marginRight;
+            }
+            else {
+                this.width = 0;
             }
             if (height != 0) {
-                height += margin * 2;
-                this.height = height;
                 if (alignChild === canvas2djs.AlignType.TOP) {
                     this.children.forEach(function (sprite) {
-                        sprite.y = margin + sprite._originPixelY;
+                        sprite.y = marginTop + sprite._originPixelY;
                     });
                 }
                 else if (alignChild === canvas2djs.AlignType.BOTTOM) {
                     this.children.forEach(function (sprite) {
-                        sprite.y = height - margin - sprite.height + sprite._originPixelY;
+                        sprite.y = marginTop + height - sprite.height + sprite._originPixelY;
                     });
                 }
                 else {
                     this.children.forEach(function (sprite) {
-                        sprite.y = (height - sprite.height) * 0.5 + sprite._originPixelY;
+                        sprite.y = marginTop + (height - sprite.height) * 0.5 + sprite._originPixelY;
                     });
                 }
+                height += marginTop + marginBottom;
+                this.height = height;
+            }
+            else {
+                this.height = 0;
             }
         }
         else if (layout === exports.Layout.Vertical) {
+            width = 0;
+            height = marginTop;
             children.forEach(function (sprite, index) {
                 if (sprite.height === 0 || !sprite.visible) {
                     return;
@@ -1675,32 +1797,40 @@ var AutoResizeView = (function (_super) {
                 if (sprite.width > width) {
                     width = sprite.width;
                 }
-                sprite.y = height + margin + sprite._originPixelY;
-                height += sprite.height + margin;
+                sprite.y = height + sprite._originPixelY + (count > 0 ? verticalSpacing : 0);
+                height += sprite.height;
+                count += 1;
             });
-            if (height != 0) {
-                this.height = height + margin;
+            if (height > marginTop) {
+                this.height = height + marginBottom;
+            }
+            else {
+                this.height = 0;
             }
             if (width != 0) {
-                width += margin * 2;
-                this.width = width;
                 if (alignChild === canvas2djs.AlignType.LEFT) {
                     this.children.forEach(function (sprite) {
-                        sprite.x = margin + sprite._originPixelX;
+                        sprite.x = marginLeft + sprite._originPixelX;
                     });
                 }
                 else if (alignChild === canvas2djs.AlignType.RIGHT) {
                     this.children.forEach(function (sprite) {
-                        sprite.x = width - margin - sprite.width + sprite._originPixelX;
+                        sprite.x = marginLeft + width - sprite.width + sprite._originPixelX;
                     });
                 }
                 else {
                     this.children.forEach(function (sprite) {
-                        sprite.x = (width - sprite.width) * 0.5 + sprite._originPixelX;
+                        sprite.x = marginLeft + (width - sprite.width) * 0.5 + sprite._originPixelX;
                     });
                 }
+                width += marginLeft + marginRight;
+                this.width = width;
+            }
+            else {
+                this.width = 0;
             }
         }
+        this._isPending = false;
     };
     return AutoResizeView;
 }(canvas2djs.Sprite));
@@ -1749,7 +1879,7 @@ var ViewManager = (function () {
             var directives_1;
             Object.keys(node.attr).forEach(function (name) {
                 var value = node.attr[name];
-                if (BindingManager.isDirective(name) || reBindableAttr.test(name) || Parser.hasInterpolation(value)) {
+                if (BindingManager.isRegisteredDirective(name) || reBindableAttr.test(name) || Parser.hasInterpolation(value)) {
                     if (!directives_1) {
                         directives_1 = {};
                     }
@@ -1780,7 +1910,7 @@ var ViewManager = (function () {
             var directives_2;
             Object.keys(node.attr).forEach(function (name) {
                 var value = node.attr[name];
-                if (BindingManager.isDirective(name) || reBindableAttr.test(name) || Parser.hasInterpolation(value)) {
+                if (BindingManager.isRegisteredDirective(name) || reBindableAttr.test(name) || Parser.hasInterpolation(value)) {
                     if (!directives_2) {
                         directives_2 = {};
                     }
@@ -1822,7 +1952,7 @@ var ViewManager = (function () {
             var directives_3;
             Object.keys(node.attr).forEach(function (name) {
                 var value = node.attr[name];
-                if (BindingManager.isDirective(name) || reBindableAttr.test(name) || Parser.hasInterpolation(value)) {
+                if (BindingManager.isRegisteredDirective(name) || reBindableAttr.test(name) || Parser.hasInterpolation(value)) {
                     if (!directives_3) {
                         directives_3 = {};
                     }
@@ -1886,16 +2016,10 @@ var ViewManager = (function () {
             return;
         }
         if (attrName === 'actions') {
-            if (typeof attrValue !== 'object') {
-                return Utility.error("Invalid action directive, value is not an object", attrValue);
-            }
-            Object.keys(attrValue).forEach(function (name) {
-                if (!attrValue[name]) {
-                    return canvas2djs.Action.stop(object, name);
-                }
-                var style = StyleManager.getStyleByName(name);
+            if (typeof attrValue === 'string') {
+                var style = StyleManager.getStyleByName(attrValue);
                 if (style == null) {
-                    return Utility.error("Style \"" + name + "\" not found.");
+                    return Utility.error("Action \"" + attrValue + "\" not found.");
                 }
                 if (style.startProps) {
                     object.setProps(style.startProps);
@@ -1905,7 +2029,29 @@ var ViewManager = (function () {
                     action.setRepeatMode(style.repeatMode);
                 }
                 action.start();
-            });
+            }
+            else if (Object.prototype.toString.call(attrValue) === '[object Object]') {
+                Object.keys(attrValue).forEach(function (name) {
+                    if (!attrValue[name]) {
+                        return canvas2djs.Action.stop(object, name);
+                    }
+                    var style = StyleManager.getStyleByName(name);
+                    if (style == null) {
+                        return Utility.error("Action \"" + name + "\" not found.");
+                    }
+                    if (style.startProps) {
+                        object.setProps(style.startProps);
+                    }
+                    var action = new canvas2djs.Action(object, name).queue(style.queue);
+                    if (style.repeatMode != null) {
+                        action.setRepeatMode(style.repeatMode);
+                    }
+                    action.start();
+                });
+            }
+            else {
+                Utility.error("Invalid action directive, value is not an object", attrValue);
+            }
             return;
         }
         var registerProperties = ComponentManager.getRegisteredComponentProperties(object);
@@ -1951,8 +2097,16 @@ var ViewManager = (function () {
                 }
                 break;
             case String:
-                attrValue = String(attrValue);
-                object[attrName] = attrValue;
+                if (Object.prototype.toString.call(attrValue) === '[object Object]') {
+                    var values = Object.keys(attrValue).filter(function (name) { return !!attrValue[name]; });
+                    if (values.length) {
+                        object[attrName] = values[values.length - 1];
+                    }
+                }
+                else {
+                    attrValue = String(attrValue);
+                    object[attrName] = attrValue;
+                }
                 break;
         }
     };
@@ -1961,7 +2115,6 @@ var ViewManager = (function () {
 
 var Watcher = (function () {
     function Watcher(component, exp, isDeepWatch) {
-        var _this = this;
         this.component = component;
         this.exp = exp;
         this.isDeepWatch = isDeepWatch;
@@ -1969,21 +2122,6 @@ var Watcher = (function () {
         this.observers = {};
         this.properties = {};
         this.isActived = true;
-        this.flush = function () {
-            if (!_this.isActived) {
-                return;
-            }
-            var oldValue = _this.value;
-            var newValue = _this.getValue();
-            if ((typeof newValue === 'object' && newValue != null) || newValue !== oldValue) {
-                _this.value = newValue;
-                _this.callbacks.slice().forEach(function (callback) {
-                    if (_this.isActived) {
-                        callback(newValue, oldValue);
-                    }
-                });
-            }
-        };
         this.hasInterpolation = Parser.hasInterpolation(exp);
         this.valueGetter = this.hasInterpolation ? Parser.parseInterpolationToGetter(exp) : Parser.parseToGetter(exp);
         this.propertyChanged = this.propertyChanged.bind(this);
@@ -2024,7 +2162,23 @@ var Watcher = (function () {
         this.isActived = false;
     };
     Watcher.prototype.propertyChanged = function () {
-        Utility.nextTick(this.flush);
+        Utility.nextTick(this.flush, this);
+    };
+    Watcher.prototype.flush = function () {
+        var _this = this;
+        if (!this.isActived) {
+            return;
+        }
+        var oldValue = this.value;
+        var newValue = this.getValue();
+        if ((typeof newValue === 'object' && newValue != null) || newValue !== oldValue) {
+            this.value = newValue;
+            this.callbacks.slice().forEach(function (callback) {
+                if (_this.isActived) {
+                    callback(newValue, oldValue);
+                }
+            });
+        }
     };
     Watcher.prototype.getValue = function () {
         this.beforeCallValueGetter();
@@ -2165,7 +2319,7 @@ var BindingManager = (function () {
     BindingManager.getHighestPriorityTerminal = function (target) {
         return this.terminalDirectives.filter(function (name) { return target[name] != null; })[0];
     };
-    BindingManager.isDirective = function (name) {
+    BindingManager.isRegisteredDirective = function (name) {
         return this.registeredDirectives[name] != null;
     };
     BindingManager.createBinding = function (component, view, context) {
@@ -2227,7 +2381,9 @@ var BindingManager = (function () {
         this.addDirective(component, directive);
     };
     BindingManager.addDirective = function (component, directive) {
-        Utility.addEnsureUniqueArrayItem(directive, this.getComponentDirectives(component));
+        if (Utility.addEnsureUniqueArrayItem(directive, this.getComponentDirectives(component))) {
+            this.activedDirectives[Utility.getUid(directive)] = true;
+        }
     };
     BindingManager.getComponentDirectives = function (component) {
         var uid = Utility.getUid(component);
@@ -2237,14 +2393,16 @@ var BindingManager = (function () {
         return this.componentDirectives[uid];
     };
     BindingManager.removeDirective = function (component, directive) {
+        var uid = Utility.getUid(directive);
         var directives = this.componentDirectives[Utility.getUid(component)];
-        if (!directives) {
+        if (!this.activedDirectives[uid] || !directives) {
             return;
         }
         if (typeof directive.onDestroy === 'function') {
             directive.onDestroy();
         }
         Utility.removeItemFromArray(directive, directives);
+        delete this.activedDirectives[uid];
     };
     BindingManager.createAttributeBinding = function (attrName, expression, component, view, twoWayBinding) {
         var value;
@@ -2294,6 +2452,7 @@ var BindingManager = (function () {
         }
         this.addDirective(component, directive);
     };
+    BindingManager.activedDirectives = {};
     BindingManager.terminalDirectives = [];
     BindingManager.registeredDirectives = {};
     BindingManager.componentDirectives = {};
@@ -2820,12 +2979,15 @@ var Application = (function () {
     Application.prototype.setVersion = function (version) {
         this.version = version;
     };
+    Application.prototype.getVersion = function () {
+        return this.version;
+    };
     Application.prototype.createLoadingScene = function (options) {
         this.loadingSceneResources = options.resources;
         this.loadingSceneTemplate = options.template;
         this.onLoadingError = options.onLoadingError;
         this.onLoadingProgress = options.onLoadingProgress;
-        this.onLoaded = options.onLoaded;
+        this.onLoaded = options.onLoaded || (function (a, b, next) { return next(); });
         this.onLoadStart = options.onLoadStart;
         this.loadingSceneComponent = ComponentManager.createComponentByName(options.component);
     };
@@ -2933,10 +3095,11 @@ var Application = (function () {
             this.onLoadStart && this.onLoadStart(this.loadingSceneComponent, router.component);
             Loader.load(router.resources, this.version, function () {
                 Utility.addEnsureUniqueArrayItem(router.component, _this.loadedComponents);
-                _this.onLoaded && _this.onLoaded(_this.loadingSceneComponent, router.component);
-                if (_this.currRouter === router) {
-                    _this.createComponent(router);
-                }
+                _this.onLoaded(_this.loadingSceneComponent, router.component, function () {
+                    if (_this.currRouter === router) {
+                        _this.createComponent(router);
+                    }
+                });
             }, function (loadedPercent) {
                 _this.onLoadingProgress && _this.onLoadingProgress(_this.loadingSceneComponent, router.component, loadedPercent);
             }, function (type, url, version) {
@@ -3370,7 +3533,7 @@ var SpriteProperties = {
     radius: Number,
     borderWidth: Number,
     borderColor: [String, Number],
-    texture: [String, canvas2djs.Texture],
+    texture: String,
     rotation: Number,
     opacity: Number,
     visible: Boolean,
@@ -3398,8 +3561,8 @@ var SpriteProperties = {
 var TextLabelProperties = __assign({}, SpriteProperties, { text: String, fontName: String, textAlign: Number, fontColor: [String, Number], fontSize: Number, lineHeight: Number, fontStyle: String, fontWeight: String, strokeColor: [String, Number], strokeWidth: Number, wordWrap: Boolean, textFlow: Array, autoResizeWidth: Boolean });
 var BMFontLabelProperties = __assign({}, SpriteProperties, { textureMap: Object, text: String, textAlign: Number, wordWrap: Boolean, wordSpace: Number, lineHeight: Number, fontSize: Number, autoResizeHeight: Boolean });
 var ScrollViewProperties = __assign({}, SpriteProperties, { bounce: Boolean, horizentalScroll: Boolean, verticalScroll: Boolean });
-var AutoLayoutViewProperties = __assign({}, ScrollViewProperties, { layout: Number, margin: Number });
-var AutoResizeViewProperties = __assign({}, SpriteProperties, { layout: Number, margin: Number, alignChild: Number });
+var AutoLayoutViewProperties = __assign({}, ScrollViewProperties, { layout: Number, verticalSpacing: Number, horizentalSpacing: Number });
+var AutoResizeViewProperties = __assign({}, SpriteProperties, { layout: Number, marginLeft: Number, marginRight: Number, marginTop: Number, marginBottom: Number, verticalSpacing: Number, horizentalSpacing: Number, alignChild: Number });
 ComponentManager.registerComponentProperties(canvas2djs.Sprite, SpriteProperties);
 ComponentManager.registerComponentProperties(canvas2djs.TextLabel, TextLabelProperties);
 ComponentManager.registerComponentProperties(canvas2djs.BMFontLabel, BMFontLabelProperties);

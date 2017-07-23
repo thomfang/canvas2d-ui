@@ -16,7 +16,10 @@ namespace Example {
 
     canvas2dUI.StyleManager.registerStyleMap("test-scene", {
         container: {
-            margin: 5,
+            marginLeft: 5,
+            marginRight: 5,
+            marginBottom: 5,
+            marginTop: 5,
             bgColor: 0xfff,
             alignChild: canvas2d.AlignType.CENTER,
             layout: canvas2dUI.Layout.Vertical,

@@ -7,6 +7,7 @@ import { EventEmitter } from 'canvas2djs';
 
 export class BindingManager {
 
+    private static activedDirectives: { [uid: string]: boolean } = {};
     private static terminalDirectives: string[] = [];
     private static registeredDirectives: { [name: string]: { ctor: Function; isTerminal?: boolean; priority?: number; } } = {};
     private static componentDirectives: { [id: string]: IDirective[] } = {};
@@ -25,7 +26,7 @@ export class BindingManager {
         return this.terminalDirectives.filter(name => target[name] != null)[0];
     }
 
-    public static isDirective(name: string) {
+    public static isRegisteredDirective(name: string) {
         return this.registeredDirectives[name] != null;
     }
 
@@ -89,7 +90,9 @@ export class BindingManager {
     }
 
     public static addDirective(component: IComponent, directive: IDirective) {
-        Utility.addEnsureUniqueArrayItem(directive, this.getComponentDirectives(component));
+        if (Utility.addEnsureUniqueArrayItem(directive, this.getComponentDirectives(component))) {
+            this.activedDirectives[Utility.getUid(directive)] = true;
+        }
     }
 
     public static getComponentDirectives(component: IComponent) {
@@ -101,14 +104,16 @@ export class BindingManager {
     }
 
     public static removeDirective(component: IComponent, directive: IDirective) {
+        let uid = Utility.getUid(directive);
         let directives = this.componentDirectives[Utility.getUid(component)];
-        if (!directives) {
+        if (!this.activedDirectives[uid] || !directives) {
             return;
         }
         if (typeof directive.onDestroy === 'function') {
             directive.onDestroy();
         }
         Utility.removeItemFromArray(directive, directives);
+        delete this.activedDirectives[uid];
     }
 
     public static createAttributeBinding(attrName: string, expression: string, component: IComponent, view, twoWayBinding?: boolean) {

@@ -12,8 +12,8 @@ export declare class Utility {
     private static getObjectUid(target);
     static isNewValueAnObjectOrNotEqualOldValue(a: any, b: any): any;
     static isPlainObjectOrObservableObject(target: any): boolean;
-    static removeItemFromArray(item: any, arr: any[]): void;
-    static addEnsureUniqueArrayItem(item: any, arr: any[]): void;
+    static removeItemFromArray(item: any, arr: any[]): boolean;
+    static addEnsureUniqueArrayItem(item: any, arr: any[]): boolean;
     static createProxy(target: object, property: string, source: object): boolean;
     static hasProxy(target: any, property: string): boolean;
     static deepClone(target: any): any;
