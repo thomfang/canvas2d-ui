@@ -14,8 +14,8 @@ export declare class Application {
     private currState;
     private lastState;
     private currRouter;
-    private currSceneName;
-    private currSceneComponent;
+    private currComponentName;
+    private currComponent;
     private currScene;
     private isLoadingSceneReady;
     private loadingSceneComponent;

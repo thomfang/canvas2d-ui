@@ -9,6 +9,7 @@ import { TemplateManager } from './TemplateManager';
 
 const regParam = /\s+in\s+/;
 const regComma = /\s*,\s*/;
+const regTrackby = /trackby\s+(\w+)/;
 
 @Directive(":include")
 class IncludeDirective {
@@ -124,13 +125,10 @@ class SlotPlaceholderDirective implements IDirective {
             return;
         }
 
-        let slotViews = context.slotViews[name];
+        let slotViews: VirtualView[] = context.slotViews[name];
         let placeholder: Sprite<{}> = view.instance;
-        let slotSprites: Sprite<{}>[] = [];
+        let slotSprites = slotViews.map(v => v.sprite);
 
-        slotViews.forEach(slotView => {
-            slotSprites.push(...slotView.sprites);
-        });
         placeholder.parent.replaceChild(placeholder, ...slotSprites);
     }
 }
@@ -153,12 +151,16 @@ class ReferenceDirective implements IDirective {
     }
 }
 
+/**
+ * :for="item in list trackby id"
+ */
 @Directive(":for", true, 100)
 class ForLoopDirective implements IDirective {
 
     private static itemComponentCtors: { [expression: string]: Function } = {};
 
     refKey: string;
+    originalExp: string;
     expression: string;
     view: VirtualView;
     component: IComponent;
@@ -168,6 +170,8 @@ class ForLoopDirective implements IDirective {
     itemComponentCtor: Function;
     itemSprites: Sprite<{}>[];
     unWatch: Function;
+    trackByKey: boolean;
+    trackKey: string;
 
     onInit(expression: string, component: IComponent, view: VirtualView, context) {
         this.refKey = `component:${Utility.getUid(this)}`;
@@ -175,6 +179,7 @@ class ForLoopDirective implements IDirective {
         this.component = component;
         this.itemDatas = [];
         this.itemSprites = [];
+        this.originalExp = expression;
         this.parseExpression(expression);
         this.unWatch = WatcherManager.watch(component, this.expression, (newValue, oldValue) => {
             this.onUpdate(newValue, oldValue);
@@ -201,13 +206,26 @@ class ForLoopDirective implements IDirective {
 
     getItemComponentByItem(item: ItemDataDescriptor): IItemComponent {
         let value = item.value;
-        let components = WeakRef.get(this.refKey, value);
         let itemComponent: IItemComponent;
 
-        if (components) {
-            for (let i = 0; itemComponent = components[i]; i++) {
-                if (itemComponent.__idle__) {
+        if (this.trackByKey) {
+            let trackValue = value[this.trackKey];
+            for (let i = 0; itemComponent = this.itemComponents[i]; i++) {
+                if (itemComponent[this.keyValueName.value][this.trackKey] === trackValue) {
+                    if (!itemComponent.__idle__) {
+                        Utility.warn(`"${this.trackKey}" is not an unique key in directive ':for="${this.originalExp}"'`);
+                    }
                     break;
+                }
+            }
+        }
+        else {
+            let components = WeakRef.get(this.refKey, value);
+            if (components) {
+                for (let i = 0; itemComponent = components[i]; i++) {
+                    if (itemComponent.__idle__) {
+                        break;
+                    }
                 }
             }
         }
@@ -244,14 +262,16 @@ class ForLoopDirective implements IDirective {
 
     createItemComponent(item: ItemDataDescriptor): IItemComponent {
         let value = item.value;
-        let itemComponents: IItemComponent[] = WeakRef.get(this.refKey, value);
         let itemComponent: IItemComponent = ComponentManager.createComponentByConstructor(this.itemComponentCtor);
 
-        if (itemComponents == null) {
-            itemComponents = [];
-            WeakRef.set(this.refKey, value, itemComponents);
+        if (!this.trackByKey) {
+            let itemComponents: IItemComponent[] = WeakRef.get(this.refKey, value);
+            if (itemComponents == null) {
+                itemComponents = [];
+                WeakRef.set(this.refKey, value, itemComponents);
+            }
+            itemComponents.push(itemComponent);
         }
-        itemComponents.push(itemComponent);
 
         itemComponent.$parent = this.component;
         this.updateItemComponent(itemComponent, item);
@@ -261,22 +281,23 @@ class ForLoopDirective implements IDirective {
     removeItemComponents(forceRemove?: boolean) {
         this.itemComponents.forEach(itemComponent => {
             if (itemComponent.__idle__ || forceRemove) {
-
                 let value = itemComponent[this.keyValueName.value];
-                let components = WeakRef.get(this.refKey, value);
                 let sprite = WeakRef.get(this.refKey, itemComponent);
 
                 itemComponent.$parent = null;
                 ComponentManager.destroyComponent(itemComponent);
-
-                WeakRef.remove(this.refKey, itemComponent);
                 if (sprite.parent) {
                     sprite.parent.removeChild(sprite);
                 }
 
-                Utility.removeItemFromArray(itemComponent, components);
-                if (!components.length) {
-                    WeakRef.remove(this.refKey, value);
+                if (!this.trackByKey) {
+                    let components = WeakRef.get(this.refKey, value);
+                    WeakRef.remove(this.refKey, itemComponent);
+
+                    Utility.removeItemFromArray(itemComponent, components);
+                    if (!components.length) {
+                        WeakRef.remove(this.refKey, value);
+                    }
                 }
             }
         });
@@ -322,8 +343,15 @@ class ForLoopDirective implements IDirective {
             ComponentManager.registerComponentProperties(ctor, properties);
         }
 
+
+        let trackby = parts[1].match(regTrackby);
+        if (trackby) {
+            this.trackByKey = true;
+            this.trackKey = trackby[1];
+        }
+
         this.keyValueName = { key, value };
-        this.expression = parts[1].trim();
+        this.expression = parts[1].replace(regTrackby, '').trim();
         this.itemComponentCtor = ForLoopDirective.itemComponentCtors[expression];
     }
 

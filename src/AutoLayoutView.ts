@@ -1,12 +1,14 @@
 import { ScrollView, ScrollViewProps } from './ScrollView';
 import { Sprite, AlignType } from 'canvas2djs';
 import { Utility } from './Utility';
+import { BaseComponent, Property } from './ComponentManager';
+import "./InternalViews";
 
 export type AutoLayoutViewProps = ScrollViewProps & {
     layout?: Layout;
-    alignChild?: AlignType;
     verticalSpacing?: number;
     horizentalSpacing?: number;
+    autoResizeHeight?: boolean;
 }
 
 export enum Layout {
@@ -14,44 +16,68 @@ export enum Layout {
     Horizontal,
 }
 
+export type HorizentalAlign = AlignType.LEFT | AlignType.CENTER | AlignType.RIGHT;
+export type VerticalAlign = AlignType.TOP | AlignType.CENTER | AlignType.BOTTOM
+
+@BaseComponent("AutoLayoutView", "ScrollView")
 export class AutoLayoutView extends ScrollView {
 
     protected _props: AutoLayoutViewProps;
+    protected _isPending: any;
     protected _layout: Layout;
-    protected _alignChild: AlignType;
     protected _verticalSpacing: number;
     protected _horizentalSpacing: number;
+    protected _autoResizeHeight: boolean;
+    protected _horizentalAlign: HorizentalAlign;
+    protected _verticalAlign: VerticalAlign;
 
     constructor(props = {}) {
         super({
             ...props,
         });
         this._layout = this._layout == null ? Layout.Horizontal : this._layout;
+        this._horizentalAlign = this._horizentalAlign == null ? AlignType.CENTER : this._horizentalAlign;
+        this._verticalAlign = this._verticalAlign == null ? AlignType.CENTER : this._verticalAlign;
+        this._autoResizeHeight = this._autoResizeHeight == null ? false : this._autoResizeHeight;
         this._verticalSpacing = this._verticalSpacing || 0;
         this._horizentalSpacing = this._horizentalSpacing || 0;
-        this._alignChild = this._alignChild == null ? AlignType.CENTER : this._alignChild;
 
-        this.scroller.addChild = (...args) => {
-            Sprite.prototype.addChild.apply(this.scroller, args);
+        this.scroller.addChild = (target: Sprite<{}>, position?: number) => {
+            target.left = -99999;
+            Sprite.prototype.addChild.call(this.scroller, target, position);
             Utility.nextTick(this.reLayout, this);
         };
-        this.scroller.removeChild = (...args) => {
-            Sprite.prototype.removeChild.apply(this.scroller, args);
+        this.scroller.removeChild = (target: Sprite<{}>) => {
+            Sprite.prototype.removeChild.call(this.scroller, target);
             Utility.nextTick(this.reLayout, this);
         };
     }
 
-    get alignChild() {
-        return this._alignChild;
+    @Property(Number)
+    get horizentalAlign() {
+        return this._horizentalAlign;
     }
 
-    set alignChild(value: number) {
-        if (value !== this._alignChild) {
-            this._alignChild = value;
+    set horizentalAlign(value: HorizentalAlign) {
+        if (value !== this._horizentalAlign) {
+            this._horizentalAlign = value;
             Utility.nextTick(this.reLayout, this);
         }
     }
 
+    @Property(Number)
+    get verticalAlign() {
+        return this._verticalAlign;
+    }
+
+    set verticalAlign(value: VerticalAlign) {
+        if (value !== this._verticalAlign) {
+            this._verticalAlign = value;
+            Utility.nextTick(this.reLayout, this);
+        }
+    }
+
+    @Property(Number)
     get layout() {
         return this._layout;
     }
@@ -63,6 +89,21 @@ export class AutoLayoutView extends ScrollView {
         }
     }
 
+    @Property(Boolean)
+    get autoResizeHeight() {
+        return this._autoResizeHeight;
+    }
+
+    set autoResizeHeight(value: boolean) {
+        if (this._autoResizeHeight !== value) {
+            this._autoResizeHeight = value;
+            if (value) {
+                this.height = this.size.height;
+            }
+        }
+    }
+
+    @Property(Number)
     get verticalSpacing() {
         return this._verticalSpacing;
     }
@@ -74,6 +115,7 @@ export class AutoLayoutView extends ScrollView {
         }
     }
 
+    @Property(Number)
     get horizentalSpacing() {
         return this._horizentalSpacing;
     }
@@ -86,6 +128,7 @@ export class AutoLayoutView extends ScrollView {
     }
 
     public addChild(target: Sprite<{}>, position?: number) {
+        target.left = -99999;
         Sprite.prototype.addChild.call(this.scroller, target, position);
         Utility.nextTick(this.reLayout, this);
     }
@@ -95,26 +138,33 @@ export class AutoLayoutView extends ScrollView {
         Utility.nextTick(this.reLayout, this);
     }
 
-    // protected _resizeWidth() {
-    //     (Sprite.prototype as any)._resizeWidth.call(this);
-    //     Utility.nextTick(this.reLayout, this);
-    // }
-
-    // protected _resizeHeight() {
-    //     (Sprite.prototype as any)._resizeHeight.call(this);
-    //     Utility.nextTick(this.reLayout, this);
-    // }
-
     protected _onChildResize() {
-        // this.reLayout();
-        Utility.nextTick(this.reLayout, this);
-        (Sprite.prototype as any)._onChildResize.call(this);
+        if (this._isPending) {
+            super._onChildResize();
+        }
+        else {
+            Utility.nextTick(this.reLayout, this);
+        }
     }
 
     protected reLayout() {
-        if (!this.stage || !this.scroller.children || !this.scroller.children.length) {
+        if (this._isPending || !this.stage) {
             return;
         }
+        if (!this.scroller.children || !this.scroller.children.length) {
+            this.size = { width: 0, height: 0 };
+            if (this._autoResizeHeight) {
+                this.height = 0;
+            }
+            if (this.verticalScroll) {
+                this.touchScrollVertical.stop();
+            }
+            if (this.horizentalScroll) {
+                this.touchScrollVertical.stop();
+            }
+            return;
+        }
+        this._isPending = true;
 
         let children = this.scroller.children;
         let { width, height, verticalSpacing, horizentalSpacing } = this;
@@ -127,24 +177,29 @@ export class AutoLayoutView extends ScrollView {
         let prevExist: boolean;
 
         if (this.layout === Layout.Horizontal) {
+            let list: Sprite<{}>[] = [];
             children.forEach((sprite, index) => {
+                sprite.left = null;
                 if (sprite.width === 0) {
                     return;
                 }
                 let spacing = (prevExist ? horizentalSpacing : 0);
                 let right = x + sprite.width + spacing;
                 if (right <= width || index === 0) {
-                    sprite.x = x + (sprite as any)._originPixelX + spacing;
+                    // sprite.x = x + (sprite as any)._originPixelX + spacing;
+                    list.push(sprite);
                     x = right;
                     prevExist = true;
                 }
                 else {
+                    this.applyHorizentalAlign(list, x);
                     y += count > 0 ? verticalSpacing : 0;
                     this.alignChildHorizental(beginIndex, index - 1, children, y, maxHeight);
                     beginIndex = index;
                     y += maxHeight;
                     x = sprite.width;
-                    sprite.x = (sprite as any)._originPixelX;
+                    // sprite.x = (sprite as any)._originPixelX;
+                    list = [sprite];
                     maxHeight = 0;
                     count += 1;
                 }
@@ -152,10 +207,13 @@ export class AutoLayoutView extends ScrollView {
                     maxHeight = sprite.height;
                 }
             });
+
+            this.applyHorizentalAlign(list, x);
             y += count > 0 ? verticalSpacing : 0;
             this.alignChildHorizental(beginIndex, children.length - 1, children, y, maxHeight);
         }
         else if (this.layout === Layout.Vertical) {
+            let list: Sprite<{}>[] = [];
             children.forEach((sprite, index) => {
                 if (sprite.height === 0) {
                     return;
@@ -163,17 +221,20 @@ export class AutoLayoutView extends ScrollView {
                 let spacing = (prevExist ? verticalSpacing : 0);
                 let bottom = y + sprite.height;
                 if (bottom <= height || index === 0) {
-                    sprite.y = y + (sprite as any)._originPixelY + spacing;
+                    // sprite.y = y + (sprite as any)._originPixelY + spacing;
+                    list.push(sprite);
                     y = bottom;
                     prevExist = true;
                 }
                 else {
+                    this.applayVerticalAlign(list, y);
                     x += count > 0 ? horizentalSpacing : 0;
                     this.alignChildVirtical(beginIndex, index - 1, children, x, maxWidth);
                     beginIndex = index;
                     x += maxWidth;
                     y = sprite.height;
-                    sprite.y = (sprite as any)._originPixelY;
+                    // sprite.y = (sprite as any)._originPixelY;
+                    list = [sprite];
                     maxWidth = 0;
                     count += 1;
                 }
@@ -181,6 +242,8 @@ export class AutoLayoutView extends ScrollView {
                     maxWidth = sprite.width;
                 }
             });
+
+            this.applayVerticalAlign(list, y);
             x += count > 0 ? horizentalSpacing : 0;
             this.alignChildHorizental(beginIndex, children.length - 1, children, x, maxWidth);
         }
@@ -189,19 +252,57 @@ export class AutoLayoutView extends ScrollView {
         }
 
         this.measureViewportSize();
+        if (this._autoResizeHeight) {
+            this.height = this.size.height;
+        }
+
+        this._isPending = false;
+    }
+
+    protected applyHorizentalAlign(sprites: Sprite<{}>[], totalWidth: number) {
+        let horizentalSpacing = this._horizentalSpacing;
+        let startX = 0;
+        if (this._horizentalAlign === AlignType.CENTER) {
+            startX = (this.width - totalWidth) * 0.5;
+        }
+        else if (this._horizentalAlign === AlignType.RIGHT) {
+            startX = this.width - totalWidth;
+        }
+        sprites.forEach((sprite, i) => {
+            let spacing = (i > 0 ? horizentalSpacing : 0);
+            sprite.x = startX + (<any>sprite)._originPixelX + spacing;
+            startX += sprite.width + spacing;
+        });
+    }
+
+    protected applayVerticalAlign(sprites: Sprite<{}>[], totalHeight: number) {
+        let verticalSpacing = this._verticalSpacing;
+        let startY = 0;
+        if (this._verticalAlign === AlignType.CENTER) {
+            startY = (this.height - totalHeight) * 0.5;
+        }
+        else if (this._verticalAlign === AlignType.BOTTOM) {
+            startY = this.height - totalHeight;
+        }
+        sprites.forEach((sprite, i) => {
+            let spacing = (i > 0 ? verticalSpacing : 0);
+            sprite.y = startY + (<any>sprite)._originPixelY + spacing;
+            startY += sprite.height + spacing;
+        });
     }
 
     protected alignChildVirtical(begin: number, end: number, sprites: Sprite<{}>[], x: number, width: number) {
         if (end < begin) {
             return;
         }
-        if (this._alignChild === AlignType.LEFT) {
+        let align = this._horizentalAlign;
+        if (align === AlignType.LEFT) {
             for (let i = begin; i <= end; i++) {
                 let sprite = sprites[i] as any;
                 sprite.x = x + sprite._originPixelX;
             }
         }
-        else if (this._alignChild === AlignType.RIGHT) {
+        else if (align === AlignType.RIGHT) {
             for (let i = begin; i <= end; i++) {
                 let sprite = sprites[i] as any;
                 sprite.x = x + width - sprite.width + sprite._originPixelX;
@@ -219,13 +320,14 @@ export class AutoLayoutView extends ScrollView {
         if (end < begin) {
             return;
         }
-        if (this._alignChild === AlignType.TOP) {
+        let align = this._verticalAlign;
+        if (align === AlignType.TOP) {
             for (let i = begin; i <= end; i++) {
                 let sprite = sprites[i] as any;
                 sprite.y = y + sprite._originPixelY;
             }
         }
-        else if (this._alignChild === AlignType.BOTTOM) {
+        else if (align === AlignType.BOTTOM) {
             for (let i = begin; i <= end; i++) {
                 let sprite = sprites[i] as any;
                 sprite.y = y + height - sprite.height + sprite._originPixelY;

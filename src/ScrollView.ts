@@ -1,6 +1,8 @@
 import { Sprite, SpriteProps, UIEvent, EventHelper } from 'canvas2djs';
 import { TouchScroll } from './TouchScroll';
 import { Utility } from './Utility';
+import { BaseComponent, Property } from './ComponentManager';
+import "./InternalViews";
 
 export type ScrollViewProps = SpriteProps & {
     bounce?: boolean;
@@ -11,14 +13,21 @@ export type ScrollViewProps = SpriteProps & {
 
 export type Point = { x: number; y: number; }
 
+@BaseComponent("ScrollView", "sprite")
 export class ScrollView extends Sprite<ScrollViewProps> {
 
     public static SCROLL = "scroll";
     public static scrollThreshold: number = 5;
 
     public onScroll: (scrollPosition: Point) => any;
+
+    @Property(Boolean)
     public horizentalScroll: boolean;
+
+    @Property(Boolean)
     public verticalScroll: boolean;
+
+    @Property(Boolean)
     public bounce: boolean;
 
     protected scroller: Sprite<{}>;
@@ -113,6 +122,12 @@ export class ScrollView extends Sprite<ScrollViewProps> {
                 }
             });
         }
+        if (height < this.size.height && this.verticalScroll) {
+            this.onUpdateVerticalScroll(0);
+        }
+        if (width < this.size.width && this.horizentalScroll) {
+            this.onUpdateHorizentalScroll(0);
+        }
         this.size = { width, height };
     }
 
@@ -146,7 +161,7 @@ export class ScrollView extends Sprite<ScrollViewProps> {
             this.touchScrollVertical.start(helper.stageY);
         }
 
-        helper.stopPropagation();
+        // helper.stopPropagation();
 
         this.stage.on(UIEvent.TOUCH_MOVED, this.onTouchMovedHandler);
         this.stage.on(UIEvent.TOUCH_ENDED, this.onTouchEndedHandler);

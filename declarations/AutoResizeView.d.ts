@@ -1,5 +1,6 @@
 import { Sprite, SpriteProps, AlignType } from 'canvas2djs';
 import { Layout } from './AutoLayoutView';
+import "./InternalViews";
 export declare type AutoResizeViewProps = SpriteProps & {
     layout?: Layout;
     alignChild?: AlignType;

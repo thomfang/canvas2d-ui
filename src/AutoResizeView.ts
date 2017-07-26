@@ -1,6 +1,8 @@
 import { Sprite, SpriteProps, AlignType } from 'canvas2djs';
 import { Layout } from './AutoLayoutView';
 import { Utility } from './Utility';
+import { BaseComponent, Property } from './ComponentManager';
+import "./InternalViews";
 
 export type AutoResizeViewProps = SpriteProps & {
     layout?: Layout;
@@ -13,6 +15,7 @@ export type AutoResizeViewProps = SpriteProps & {
     horizentalSpacing?: number;
 }
 
+@BaseComponent("AutoResizeView", "sprite")
 export class AutoResizeView extends Sprite<AutoResizeViewProps> {
 
     protected _isPending: boolean;
@@ -40,6 +43,7 @@ export class AutoResizeView extends Sprite<AutoResizeViewProps> {
         this._alignChild = this._alignChild == null ? AlignType.CENTER : this._alignChild;
     }
 
+    @Property(Number)
     get marginLeft() {
         return this._marginLeft;
     }
@@ -51,6 +55,7 @@ export class AutoResizeView extends Sprite<AutoResizeViewProps> {
         }
     }
 
+    @Property(Number)
     get marginRight() {
         return this._marginRight;
     }
@@ -62,6 +67,7 @@ export class AutoResizeView extends Sprite<AutoResizeViewProps> {
         }
     }
 
+    @Property(Number)
     get marginBottom() {
         return this._marginBottom;
     }
@@ -73,6 +79,7 @@ export class AutoResizeView extends Sprite<AutoResizeViewProps> {
         }
     }
 
+    @Property(Number)
     get marginTop() {
         return this._marginTop;
     }
@@ -84,6 +91,7 @@ export class AutoResizeView extends Sprite<AutoResizeViewProps> {
         }
     }
 
+    @Property(Number)
     get verticalSpacing() {
         return this._verticalSpacing;
     }
@@ -95,6 +103,7 @@ export class AutoResizeView extends Sprite<AutoResizeViewProps> {
         }
     }
 
+    @Property(Number)
     get horizentalSpacing() {
         return this._horizentalSpacing;
     }
@@ -106,6 +115,7 @@ export class AutoResizeView extends Sprite<AutoResizeViewProps> {
         }
     }
 
+    @Property(Number)
     get layout() {
         return this._layout;
     }
@@ -117,6 +127,7 @@ export class AutoResizeView extends Sprite<AutoResizeViewProps> {
         }
     }
 
+    @Property(Number)
     get alignChild() {
         return this._alignChild;
     }
@@ -130,8 +141,8 @@ export class AutoResizeView extends Sprite<AutoResizeViewProps> {
 
     public addChild(target: Sprite<{}>, position?: number) {
         super.addChild(target, position);
-        // Utility.nextTick(this.reLayout, this);
-        this.reLayout();
+        Utility.nextTick(this.reLayout, this);
+        // this.reLayout();
     }
 
     public removeChild(target: Sprite<{}>) {
@@ -177,8 +188,9 @@ export class AutoResizeView extends Sprite<AutoResizeViewProps> {
                 if (sprite.height > height) {
                     height = sprite.height;
                 }
-                sprite.x = width + (<any>sprite)._originPixelX + (count > 0 ? horizentalSpacing : 0);
-                width += sprite.width;
+                let spacing = count > 0 ? horizentalSpacing : 0;
+                sprite.x = width + (<any>sprite)._originPixelX + spacing;
+                width += sprite.width + spacing;
                 count += 1;
             });
 
@@ -221,8 +233,9 @@ export class AutoResizeView extends Sprite<AutoResizeViewProps> {
                 if (sprite.width > width) {
                     width = sprite.width;
                 }
-                sprite.y = height  + (<any>sprite)._originPixelY + (count > 0 ? verticalSpacing : 0);
-                height += sprite.height;
+                let spacing = count > 0 ? verticalSpacing : 0;
+                sprite.y = height + (<any>sprite)._originPixelY + spacing;
+                height += sprite.height + spacing;
                 count += 1;
             });
 

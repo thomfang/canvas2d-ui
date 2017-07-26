@@ -46,7 +46,7 @@ var TextLabelProperties = {
     ...SpriteProperties,
     text: String,
     fontName: String,
-    textAlign: Number,
+    textAlign: String,
     fontColor: [String, Number],
     fontSize: Number,
     lineHeight: Number,
@@ -62,40 +62,43 @@ var BMFontLabelProperties = {
     ...SpriteProperties,
     textureMap: Object,
     text: String,
-    textAlign: Number,
+    textAlign: String,
     wordWrap: Boolean,
     wordSpace: Number,
     lineHeight: Number,
     fontSize: Number,
     autoResizeHeight: Boolean,
 };
-var ScrollViewProperties = {
-    ...SpriteProperties,
-    bounce: Boolean,
-    horizentalScroll: Boolean,
-    verticalScroll: Boolean,
-};
-var AutoLayoutViewProperties = {
-    ...ScrollViewProperties,
-    layout: Number,
-    verticalSpacing: Number,
-    horizentalSpacing: Number,
-};
-var AutoResizeViewProperties = {
-    ...SpriteProperties,
-    layout: Number,
-    marginLeft: Number,
-    marginRight: Number,
-    marginTop: Number,
-    marginBottom: Number,
-    verticalSpacing: Number,
-    horizentalSpacing: Number,
-    alignChild: Number,
-};
+// var ScrollViewProperties = {
+//     ...SpriteProperties,
+//     bounce: Boolean,
+//     horizentalScroll: Boolean,
+//     verticalScroll: Boolean,
+// };
+// var AutoLayoutViewProperties = {
+//     ...ScrollViewProperties,
+//     layout: Number,
+//     verticalSpacing: Number,
+//     horizentalSpacing: Number,
+// };
+// var AutoResizeViewProperties = {
+//     ...SpriteProperties,
+//     layout: Number,
+//     marginLeft: Number,
+//     marginRight: Number,
+//     marginTop: Number,
+//     marginBottom: Number,
+//     verticalSpacing: Number,
+//     horizentalSpacing: Number,
+//     alignChild: Number,
+// };
 
+ComponentManager.registerBaseComponent("sprite", Sprite);
+// ComponentManager.registerBaseComponent("text", TextLabel);
+// ComponentManager.registerBaseComponent("bmfont", BMFontLabel);
 ComponentManager.registerComponentProperties(Sprite, SpriteProperties);
 ComponentManager.registerComponentProperties(TextLabel, TextLabelProperties);
 ComponentManager.registerComponentProperties(BMFontLabel, BMFontLabelProperties);
-ComponentManager.registerComponentProperties(ScrollView, ScrollViewProperties);
-ComponentManager.registerComponentProperties(AutoLayoutView, AutoLayoutViewProperties);
-ComponentManager.registerComponentProperties(AutoResizeView, AutoResizeViewProperties);
+// ComponentManager.registerComponentProperties(ScrollView, ScrollViewProperties);
+// ComponentManager.registerComponentProperties(AutoLayoutView, AutoLayoutViewProperties);
+// ComponentManager.registerComponentProperties(AutoResizeView, AutoResizeViewProperties);

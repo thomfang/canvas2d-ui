@@ -1,5 +1,6 @@
 import { Sprite, SpriteProps, EventHelper } from 'canvas2djs';
 import { TouchScroll } from './TouchScroll';
+import "./InternalViews";
 export declare type ScrollViewProps = SpriteProps & {
     bounce?: boolean;
     horizentalScroll?: boolean;

@@ -4,19 +4,37 @@ import { ObservableObject } from './ObservableObject';
 import { VirtualView } from './ViewManager';
 import { BindingManager } from './BindingManager';
 import { WatcherManager } from './WatcherManager';
-import { EventEmitter } from 'canvas2djs';
+import { EventEmitter, Sprite } from 'canvas2djs';
 
 export class ComponentManager {
 
     private static componentModelSources: { [uid: string]: object } = {};
     private static registeredComponentProperties: { [uid: string]: { [property: string]: Function | Function[] } } = {};
     private static registeredComponentCtors: { [name: string]: Function } = {};
+    public static registeredBaseComponentCtors: { [name: string]: IBaseComponentCtor } = {};
 
     public static registerComponent(name: string, ctor: Function) {
         if (this.registeredComponentCtors[name] != null) {
-            Utility.warn(`Component "${name} is override,"`, ctor);
+            Utility.warn(`Component "${name}" is override,`, ctor);
         }
         this.registeredComponentCtors[name] = ctor;
+    }
+
+    public static registerBaseComponent(name: string, ctor: IBaseComponentCtor, extendComponentName?: string) {
+        if (this.registeredBaseComponentCtors[name] != null) {
+            Utility.warn(`Component "${name}" is override,`, ctor);
+        }
+        this.registeredBaseComponentCtors[name] = ctor;
+        if (extendComponentName == null) {
+            return;
+        }
+        let properties = this.getRegisteredBaseComponentPropertiesByName(extendComponentName);
+        if (properties == null) {
+            Utility.warn(`Component "${extendComponentName}" has not registered properties.`);
+        }
+        else {
+            this.registerComponentProperties(ctor, properties);
+        }
     }
 
     public static registerComponentProperty(component: IComponent, property: string, type: Function | Function[]) {
@@ -89,6 +107,15 @@ export class ComponentManager {
         }
     }
 
+    public static getBaseComponentCtorByName(name: string) {
+        return this.registeredBaseComponentCtors[name];
+    }
+
+    public static getRegisteredBaseComponentPropertiesByName(name: string) {
+        let ctor = this.registeredBaseComponentCtors[name];
+        return ctor && this.registeredComponentProperties[Utility.getUid(ctor)];
+    }
+
     public static getRegisteredComponentPropertiesByName(name: string) {
         let ctor = this.registeredComponentCtors[name];
         return ctor && this.registeredComponentProperties[Utility.getUid(ctor)];
@@ -136,12 +163,22 @@ export function Property(type: Function = String) {
     };
 }
 
+export function BaseComponent(name: string, extendComponentName?: string) {
+    return (componentCtor: IBaseComponentCtor) => {
+        ComponentManager.registerBaseComponent(name, componentCtor, extendComponentName);
+    }
+}
+
 export interface IComponent {
     emitter?: EventEmitter;
     onInit?();
     onBeforeMount?(views: VirtualView);
     onAfterMounted?();
     onDestroy?();
+}
+
+export interface IBaseComponentCtor {
+    new(): Sprite<{}>;
 }
 
 /**

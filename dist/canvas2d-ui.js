@@ -1,5 +1,5 @@
 /**
- * canvas2d-ui v1.0.1
+ * canvas2d-ui v1.0.2
  * Copyright (c) 2017-present Todd Fon <tilfon9017@gmail.com>
  * All rights reserved.
  */
@@ -995,846 +995,6 @@ var StyleManager = (function () {
     return StyleManager;
 }());
 
-/**
- * 需要记录的历史速度的最大次数。
- */
-var MAX_VELOCITY_COUNT = 4;
-/**
- * 记录的历史速度的权重列表。
- */
-var VELOCITY_WEIGHTS = [1, 1.33, 1.66, 2];
-/**
- * 当前速度所占的权重。
- */
-var CURRENT_VELOCITY_WEIGHT = 2.33;
-/**
- * 最小的改变速度，解决浮点数精度问题。
- */
-var MINIMUM_VELOCITY = 0.02;
-/**
- * 当容器自动滚动时要应用的摩擦系数
- */
-var FRICTION = 0.998;
-/**
- * 当容器自动滚动时并且滚动位置超出容器范围时要额外应用的摩擦系数
- */
-var EXTRA_FRICTION = 0.95;
-/**
- * 摩擦系数的自然对数
- */
-var FRICTION_LOG = Math.log(FRICTION);
-var TouchScroll = (function () {
-    function TouchScroll(onUpdate, onEnded) {
-        this.onUpdate = onUpdate;
-        this.onEnded = onEnded;
-        this.offsetPos = 0;
-        this.currentPos = 0;
-        this.previousPos = 0;
-        this.maxScrollPos = 0;
-        this.previousTime = 0;
-        this.velocity = 0;
-        this.previousVelocity = [];
-        this._currScrollPos = 0;
-        this.bounce = true;
-        this.scrollFactor = 1;
-    }
-    Object.defineProperty(TouchScroll.prototype, "currScrollPos", {
-        get: function () {
-            return this._currScrollPos;
-        },
-        set: function (value) {
-            this._currScrollPos = value;
-            if (this.onUpdate) {
-                this.onUpdate(this._currScrollPos);
-            }
-        },
-        enumerable: true,
-        configurable: true
-    });
-    TouchScroll.prototype.start = function (position) {
-        this.stop();
-        this.offsetPos = position;
-        this.currentPos = this.previousPos = position;
-        this.previousTime = Date.now();
-        this.previousVelocity.length = 0;
-        this.startTick();
-    };
-    TouchScroll.prototype.stop = function () {
-        if (this.action) {
-            this.action.stop();
-            this.action = null;
-        }
-        this.velocity = 0;
-        this.stopTick();
-    };
-    TouchScroll.prototype.update = function (touchPos, maxScrollPos, scrollValue) {
-        maxScrollPos = Math.max(0, maxScrollPos);
-        this.currentPos = touchPos;
-        this.maxScrollPos = maxScrollPos;
-        var disMove = this.offsetPos - touchPos;
-        var scrollPos = disMove + scrollValue;
-        this.offsetPos = touchPos;
-        if (scrollPos < 0) {
-            if (!this.bounce) {
-                scrollPos = 0;
-            }
-            else {
-                scrollPos -= disMove * 0.5;
-            }
-        }
-        if (scrollPos > maxScrollPos) {
-            if (!this.bounce) {
-                scrollPos = maxScrollPos;
-            }
-            else {
-                scrollPos -= disMove * 0.5;
-            }
-        }
-        this.currScrollPos = scrollPos;
-    };
-    TouchScroll.prototype.finish = function (currScrollPos, maxScrollPos) {
-        this.stopTick();
-        var sum = this.velocity * CURRENT_VELOCITY_WEIGHT;
-        var prevVelocityX = this.previousVelocity;
-        var length = this.previousVelocity.length;
-        var totalWeight = CURRENT_VELOCITY_WEIGHT;
-        for (var i = 0; i < length; i++) {
-            var weight = VELOCITY_WEIGHTS[i];
-            sum += prevVelocityX[i] * weight;
-            totalWeight += weight;
-        }
-        var pixelsPerMS = sum / totalWeight;
-        var absPixelsPerMS = Math.abs(pixelsPerMS);
-        var duration = 0;
-        var posTo = 0;
-        if (absPixelsPerMS > MINIMUM_VELOCITY) {
-            posTo = currScrollPos + (pixelsPerMS - MINIMUM_VELOCITY) / FRICTION_LOG * 2 * this.scrollFactor;
-            if (posTo < 0 || posTo > maxScrollPos) {
-                posTo = currScrollPos;
-                while (Math.abs(pixelsPerMS) > MINIMUM_VELOCITY) {
-                    posTo -= pixelsPerMS;
-                    if (posTo < 0 || posTo > maxScrollPos) {
-                        pixelsPerMS *= FRICTION * EXTRA_FRICTION;
-                    }
-                    else {
-                        pixelsPerMS *= FRICTION;
-                    }
-                    duration += 1;
-                }
-            }
-            else {
-                duration = Math.log(MINIMUM_VELOCITY / absPixelsPerMS) / FRICTION_LOG;
-            }
-        }
-        else {
-            posTo = currScrollPos;
-        }
-        if (duration > 0) {
-            if (!this.bounce) {
-                if (posTo < 0) {
-                    posTo = 0;
-                }
-                else if (posTo > maxScrollPos) {
-                    posTo = maxScrollPos;
-                }
-            }
-            this.throwTo(posTo, duration);
-        }
-        else {
-            this.finishScrolling();
-        }
-    };
-    TouchScroll.prototype.onTick = function () {
-        var now = Date.now();
-        var timeOffset = now - this.previousTime;
-        if (timeOffset > 10) {
-            var previousVelocity = this.previousVelocity;
-            if (previousVelocity.length >= MAX_VELOCITY_COUNT) {
-                previousVelocity.shift();
-            }
-            this.velocity = (this.currentPos - this.previousPos) / timeOffset;
-            previousVelocity.push(this.velocity);
-            this.previousTime = now;
-            this.previousPos = this.currentPos;
-        }
-        this.startTick();
-    };
-    TouchScroll.prototype.throwTo = function (posTo, duration) {
-        var _this = this;
-        var currScrollPos = this._currScrollPos;
-        if (currScrollPos === posTo) {
-            return this.onEnded();
-        }
-        if (this.action) {
-            this.action.stop();
-        }
-        this.action = new canvas2djs.Action(this).to({
-            currScrollPos: {
-                dest: posTo,
-                easing: easeOut
-            }
-        }, duration / 1000).then(function () {
-            _this.finishScrolling();
-        }).start();
-    };
-    TouchScroll.prototype.finishScrolling = function () {
-        var posTo = this._currScrollPos;
-        var maxScrollPos = this.maxScrollPos;
-        if (posTo < 0) {
-            posTo = 0;
-        }
-        else if (posTo > maxScrollPos) {
-            posTo = maxScrollPos;
-        }
-        this.throwTo(posTo, 300);
-    };
-    TouchScroll.prototype.startTick = function () {
-        var _this = this;
-        this.stopTick();
-        this.timerId = setTimeout(function () { return _this.onTick(); });
-    };
-    TouchScroll.prototype.stopTick = function () {
-        clearTimeout(this.timerId);
-        this.timerId = null;
-    };
-    return TouchScroll;
-}());
-function easeOut(ratio) {
-    var invRatio = ratio - 1.0;
-    return invRatio * invRatio * invRatio + 1;
-}
-
-var ScrollView = (function (_super) {
-    __extends(ScrollView, _super);
-    function ScrollView(props) {
-        if (props === void 0) { props = {}; }
-        var _this = _super.call(this, __assign({}, props, { clipOverflow: true })) || this;
-        _this.scrollPos = { x: 0, y: 0 };
-        _this.size = { width: 0, height: 0 };
-        _this.onUpdateHorizentalScroll = function (scrollX) {
-            _this.scroller.x = -scrollX;
-            _this.scrollPos.x = scrollX;
-            _this.onScroll && _this.onScroll(__assign({}, _this.scrollPos));
-            _this.emit(ScrollView.SCROLL, __assign({}, _this.scrollPos));
-        };
-        _this.onUpdateVerticalScroll = function (scrollY) {
-            _this.scroller.y = -scrollY;
-            _this.scrollPos.y = scrollY;
-            _this.onScroll && _this.onScroll(__assign({}, _this.scrollPos));
-            _this.emit(ScrollView.SCROLL, __assign({}, _this.scrollPos));
-        };
-        _this.onTouchBeginHandler = function (helpers) {
-            if (!_this.horizentalScroll && !_this.verticalScroll) {
-                return;
-            }
-            var helper = helpers[0];
-            _this.beginPosId = helper.identifier;
-            _this.beginPos = { x: helper.stageX, y: helper.stageY };
-            if (_this.horizentalScroll) {
-                _this.touchScrollHorizental.start(helper.stageX);
-            }
-            if (_this.verticalScroll) {
-                _this.touchScrollVertical.start(helper.stageY);
-            }
-            helper.stopPropagation();
-            _this.stage.on(canvas2djs.UIEvent.TOUCH_MOVED, _this.onTouchMovedHandler);
-            _this.stage.on(canvas2djs.UIEvent.TOUCH_ENDED, _this.onTouchEndedHandler);
-        };
-        _this.onTouchMovedHandler = function (helpers) {
-            if (!_this.beginPos) {
-                return;
-            }
-            var touchPoint = helpers.filter(function (e) { return e.identifier === _this.beginPosId; })[0];
-            if (!touchPoint) {
-                return;
-            }
-            var beginPos = _this.beginPos;
-            if (_this.horizentalScroll && Math.abs(touchPoint.stageX - beginPos.x) >= ScrollView.scrollThreshold) {
-                _this.touchScrollHorizental.update(touchPoint.stageX, _this.size.width - _this.width, _this.scrollPos.x);
-            }
-            if (_this.verticalScroll && Math.abs(touchPoint.stageY - beginPos.y) >= ScrollView.scrollThreshold) {
-                _this.touchScrollVertical.update(touchPoint.stageY, _this.size.height - _this.height, _this.scrollPos.y);
-            }
-            touchPoint.stopPropagation();
-        };
-        _this.onTouchEndedHandler = function (e) {
-            _this.stage.removeListener(canvas2djs.UIEvent.TOUCH_MOVED, _this.onTouchMovedHandler);
-            _this.stage.removeListener(canvas2djs.UIEvent.TOUCH_ENDED, _this.onTouchEndedHandler);
-            if (!_this.beginPos) {
-                return;
-            }
-            if (_this.horizentalScroll) {
-                _this.touchScrollHorizental.finish(_this.scrollPos.x, _this.size.width - _this.width);
-            }
-            if (_this.verticalScroll) {
-                _this.touchScrollVertical.finish(_this.scrollPos.y, _this.size.height - _this.height);
-            }
-            e[0].stopPropagation();
-            _this.beginPos = _this.beginPosId = null;
-        };
-        _this.scroller = new canvas2djs.Sprite({
-            originX: 0,
-            originY: 0,
-            left: 0,
-            right: 0,
-            top: 0,
-            bottom: 0,
-        });
-        _this.scroller.addChild = function () {
-            var args = [];
-            for (var _i = 0; _i < arguments.length; _i++) {
-                args[_i] = arguments[_i];
-            }
-            canvas2djs.Sprite.prototype.addChild.apply(_this.scroller, args);
-            Utility.nextTick(_this.measureViewportSize, _this);
-        };
-        _this.scroller.removeChild = function () {
-            var args = [];
-            for (var _i = 0; _i < arguments.length; _i++) {
-                args[_i] = arguments[_i];
-            }
-            canvas2djs.Sprite.prototype.removeChild.apply(_this.scroller, args);
-            Utility.nextTick(_this.measureViewportSize, _this);
-        };
-        _this.bounce = _this.bounce == null ? true : _this.bounce;
-        _super.prototype.addChild.call(_this, _this.scroller);
-        _this.touchScrollHorizental = new TouchScroll(_this.onUpdateHorizentalScroll, function () { });
-        _this.touchScrollVertical = new TouchScroll(_this.onUpdateVerticalScroll, function () { });
-        _this.touchScrollHorizental.bounce = _this.touchScrollVertical.bounce = _this.bounce;
-        _this.on(canvas2djs.UIEvent.TOUCH_BEGIN, _this.onTouchBeginHandler);
-        return _this;
-    }
-    ScrollView.prototype.addChild = function (child, position) {
-        this.scroller.addChild(child, position);
-        Utility.nextTick(this.measureViewportSize, this);
-    };
-    ScrollView.prototype.removeChild = function (child) {
-        this.scroller.removeChild(child);
-        Utility.nextTick(this.measureViewportSize, this);
-    };
-    ScrollView.prototype.removeAllChildren = function (recusive) {
-        this.scroller.removeAllChildren(recusive);
-    };
-    ScrollView.prototype.getScrollerSize = function () {
-        return __assign({}, this.size);
-    };
-    // protected _resizeWidth() {
-    //     super._resizeWidth();
-    //     Utility.nextTick(this.measureViewportSize, this);
-    // }
-    // protected _resizeHeight() {
-    //     super._resizeHeight();
-    //     Utility.nextTick(this.measureViewportSize, this);
-    // }
-    ScrollView.prototype._onChildResize = function () {
-        // this.measureViewportSize();
-        Utility.nextTick(this.measureViewportSize, this);
-        _super.prototype._onChildResize.call(this);
-    };
-    ScrollView.prototype.measureViewportSize = function () {
-        if (!this.stage) {
-            return;
-        }
-        var width = 0;
-        var height = 0;
-        if (this.scroller.children) {
-            this.scroller.children.forEach(function (sprite) {
-                var right = sprite.x + sprite.width - sprite._originPixelX;
-                var bottom = sprite.y + sprite.height - sprite._originPixelY;
-                if (right > width) {
-                    width = right;
-                }
-                if (bottom > height) {
-                    height = bottom;
-                }
-            });
-        }
-        this.size = { width: width, height: height };
-    };
-    ScrollView.prototype.release = function (recusive) {
-        this.touchScrollHorizental.stop();
-        this.touchScrollVertical.stop();
-        this.scroller.addChild = this.removeChild = null;
-        _super.prototype.removeChild.call(this, this.scroller);
-        _super.prototype.release.call(this, recusive);
-    };
-    ScrollView.SCROLL = "scroll";
-    ScrollView.scrollThreshold = 5;
-    return ScrollView;
-}(canvas2djs.Sprite));
-
-(function (Layout) {
-    Layout[Layout["Vertical"] = 0] = "Vertical";
-    Layout[Layout["Horizontal"] = 1] = "Horizontal";
-})(exports.Layout || (exports.Layout = {}));
-var AutoLayoutView = (function (_super) {
-    __extends(AutoLayoutView, _super);
-    function AutoLayoutView(props) {
-        if (props === void 0) { props = {}; }
-        var _this = _super.call(this, __assign({}, props)) || this;
-        _this._layout = _this._layout == null ? exports.Layout.Horizontal : _this._layout;
-        _this._verticalSpacing = _this._verticalSpacing || 0;
-        _this._horizentalSpacing = _this._horizentalSpacing || 0;
-        _this._alignChild = _this._alignChild == null ? canvas2djs.AlignType.CENTER : _this._alignChild;
-        _this.scroller.addChild = function () {
-            var args = [];
-            for (var _i = 0; _i < arguments.length; _i++) {
-                args[_i] = arguments[_i];
-            }
-            canvas2djs.Sprite.prototype.addChild.apply(_this.scroller, args);
-            Utility.nextTick(_this.reLayout, _this);
-        };
-        _this.scroller.removeChild = function () {
-            var args = [];
-            for (var _i = 0; _i < arguments.length; _i++) {
-                args[_i] = arguments[_i];
-            }
-            canvas2djs.Sprite.prototype.removeChild.apply(_this.scroller, args);
-            Utility.nextTick(_this.reLayout, _this);
-        };
-        return _this;
-    }
-    Object.defineProperty(AutoLayoutView.prototype, "alignChild", {
-        get: function () {
-            return this._alignChild;
-        },
-        set: function (value) {
-            if (value !== this._alignChild) {
-                this._alignChild = value;
-                Utility.nextTick(this.reLayout, this);
-            }
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(AutoLayoutView.prototype, "layout", {
-        get: function () {
-            return this._layout;
-        },
-        set: function (value) {
-            if (value !== this._layout) {
-                this._layout = value;
-                Utility.nextTick(this.reLayout, this);
-            }
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(AutoLayoutView.prototype, "verticalSpacing", {
-        get: function () {
-            return this._verticalSpacing;
-        },
-        set: function (value) {
-            if (value !== this._verticalSpacing) {
-                this._verticalSpacing = value;
-                Utility.nextTick(this.reLayout, this);
-            }
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(AutoLayoutView.prototype, "horizentalSpacing", {
-        get: function () {
-            return this._horizentalSpacing;
-        },
-        set: function (value) {
-            if (value !== this._horizentalSpacing) {
-                this._horizentalSpacing = value;
-                Utility.nextTick(this.reLayout, this);
-            }
-        },
-        enumerable: true,
-        configurable: true
-    });
-    AutoLayoutView.prototype.addChild = function (target, position) {
-        canvas2djs.Sprite.prototype.addChild.call(this.scroller, target, position);
-        Utility.nextTick(this.reLayout, this);
-    };
-    AutoLayoutView.prototype.removeChild = function (target) {
-        canvas2djs.Sprite.prototype.removeChild.call(this.scroller, target);
-        Utility.nextTick(this.reLayout, this);
-    };
-    // protected _resizeWidth() {
-    //     (Sprite.prototype as any)._resizeWidth.call(this);
-    //     Utility.nextTick(this.reLayout, this);
-    // }
-    // protected _resizeHeight() {
-    //     (Sprite.prototype as any)._resizeHeight.call(this);
-    //     Utility.nextTick(this.reLayout, this);
-    // }
-    AutoLayoutView.prototype._onChildResize = function () {
-        // this.reLayout();
-        Utility.nextTick(this.reLayout, this);
-        canvas2djs.Sprite.prototype._onChildResize.call(this);
-    };
-    AutoLayoutView.prototype.reLayout = function () {
-        var _this = this;
-        if (!this.stage || !this.scroller.children || !this.scroller.children.length) {
-            return;
-        }
-        var children = this.scroller.children;
-        var _a = this, width = _a.width, height = _a.height, verticalSpacing = _a.verticalSpacing, horizentalSpacing = _a.horizentalSpacing;
-        var maxHeight = 0;
-        var maxWidth = 0;
-        var x = 0;
-        var y = 0;
-        var beginIndex = 0;
-        var count = 0;
-        var prevExist;
-        if (this.layout === exports.Layout.Horizontal) {
-            children.forEach(function (sprite, index) {
-                if (sprite.width === 0) {
-                    return;
-                }
-                var spacing = (prevExist ? horizentalSpacing : 0);
-                var right = x + sprite.width + spacing;
-                if (right <= width || index === 0) {
-                    sprite.x = x + sprite._originPixelX + spacing;
-                    x = right;
-                    prevExist = true;
-                }
-                else {
-                    y += count > 0 ? verticalSpacing : 0;
-                    _this.alignChildHorizental(beginIndex, index - 1, children, y, maxHeight);
-                    beginIndex = index;
-                    y += maxHeight;
-                    x = sprite.width;
-                    sprite.x = sprite._originPixelX;
-                    maxHeight = 0;
-                    count += 1;
-                }
-                if (sprite.height > maxHeight) {
-                    maxHeight = sprite.height;
-                }
-            });
-            y += count > 0 ? verticalSpacing : 0;
-            this.alignChildHorizental(beginIndex, children.length - 1, children, y, maxHeight);
-        }
-        else if (this.layout === exports.Layout.Vertical) {
-            children.forEach(function (sprite, index) {
-                if (sprite.height === 0) {
-                    return;
-                }
-                var spacing = (prevExist ? verticalSpacing : 0);
-                var bottom = y + sprite.height;
-                if (bottom <= height || index === 0) {
-                    sprite.y = y + sprite._originPixelY + spacing;
-                    y = bottom;
-                    prevExist = true;
-                }
-                else {
-                    x += count > 0 ? horizentalSpacing : 0;
-                    _this.alignChildVirtical(beginIndex, index - 1, children, x, maxWidth);
-                    beginIndex = index;
-                    x += maxWidth;
-                    y = sprite.height;
-                    sprite.y = sprite._originPixelY;
-                    maxWidth = 0;
-                    count += 1;
-                }
-                if (sprite.width > maxWidth) {
-                    maxWidth = sprite.width;
-                }
-            });
-            x += count > 0 ? horizentalSpacing : 0;
-            this.alignChildHorizental(beginIndex, children.length - 1, children, x, maxWidth);
-        }
-        else {
-            Utility.warn("Unknow layout", this.layout);
-        }
-        this.measureViewportSize();
-    };
-    AutoLayoutView.prototype.alignChildVirtical = function (begin, end, sprites, x, width) {
-        if (end < begin) {
-            return;
-        }
-        if (this._alignChild === canvas2djs.AlignType.LEFT) {
-            for (var i = begin; i <= end; i++) {
-                var sprite = sprites[i];
-                sprite.x = x + sprite._originPixelX;
-            }
-        }
-        else if (this._alignChild === canvas2djs.AlignType.RIGHT) {
-            for (var i = begin; i <= end; i++) {
-                var sprite = sprites[i];
-                sprite.x = x + width - sprite.width + sprite._originPixelX;
-            }
-        }
-        else {
-            for (var i = begin; i <= end; i++) {
-                var sprite = sprites[i];
-                sprite.x = x + (width - sprite.width) * 0.5 + sprite._originPixelX;
-            }
-        }
-    };
-    AutoLayoutView.prototype.alignChildHorizental = function (begin, end, sprites, y, height) {
-        if (end < begin) {
-            return;
-        }
-        if (this._alignChild === canvas2djs.AlignType.TOP) {
-            for (var i = begin; i <= end; i++) {
-                var sprite = sprites[i];
-                sprite.y = y + sprite._originPixelY;
-            }
-        }
-        else if (this._alignChild === canvas2djs.AlignType.BOTTOM) {
-            for (var i = begin; i <= end; i++) {
-                var sprite = sprites[i];
-                sprite.y = y + height - sprite.height + sprite._originPixelY;
-            }
-        }
-        else {
-            for (var i = begin; i <= end; i++) {
-                var sprite = sprites[i];
-                sprite.y = y + (height - sprite.height) * 0.5 + sprite._originPixelY;
-            }
-        }
-    };
-    return AutoLayoutView;
-}(ScrollView));
-
-var AutoResizeView = (function (_super) {
-    __extends(AutoResizeView, _super);
-    function AutoResizeView(props) {
-        if (props === void 0) { props = {}; }
-        var _this = _super.call(this, __assign({}, props)) || this;
-        _this._marginTop = _this._marginTop || 0;
-        _this._marginRight = _this._marginRight || 0;
-        _this._marginBottom = _this._marginBottom || 0;
-        _this._marginLeft = _this._marginLeft || 0;
-        _this._verticalSpacing = _this._verticalSpacing || 0;
-        _this._horizentalSpacing = _this._horizentalSpacing || 0;
-        _this._layout = _this._layout == null ? exports.Layout.Horizontal : _this._layout;
-        _this._alignChild = _this._alignChild == null ? canvas2djs.AlignType.CENTER : _this._alignChild;
-        return _this;
-    }
-    Object.defineProperty(AutoResizeView.prototype, "marginLeft", {
-        get: function () {
-            return this._marginLeft;
-        },
-        set: function (value) {
-            if (value !== this._marginLeft) {
-                this._marginLeft = value;
-                Utility.nextTick(this.reLayout, this);
-            }
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(AutoResizeView.prototype, "marginRight", {
-        get: function () {
-            return this._marginRight;
-        },
-        set: function (value) {
-            if (value !== this._marginRight) {
-                this._marginRight = value;
-                Utility.nextTick(this.reLayout, this);
-            }
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(AutoResizeView.prototype, "marginBottom", {
-        get: function () {
-            return this._marginBottom;
-        },
-        set: function (value) {
-            if (value !== this._marginBottom) {
-                this._marginBottom = value;
-                Utility.nextTick(this.reLayout, this);
-            }
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(AutoResizeView.prototype, "marginTop", {
-        get: function () {
-            return this._marginTop;
-        },
-        set: function (value) {
-            if (value !== this._marginTop) {
-                this._marginTop = value;
-                Utility.nextTick(this.reLayout, this);
-            }
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(AutoResizeView.prototype, "verticalSpacing", {
-        get: function () {
-            return this._verticalSpacing;
-        },
-        set: function (value) {
-            if (value !== this._verticalSpacing) {
-                this._verticalSpacing = value;
-                Utility.nextTick(this.reLayout, this);
-            }
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(AutoResizeView.prototype, "horizentalSpacing", {
-        get: function () {
-            return this._horizentalSpacing;
-        },
-        set: function (value) {
-            if (value !== this._horizentalSpacing) {
-                this._horizentalSpacing = value;
-                Utility.nextTick(this.reLayout, this);
-            }
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(AutoResizeView.prototype, "layout", {
-        get: function () {
-            return this._layout;
-        },
-        set: function (value) {
-            if (value !== this._layout) {
-                this._layout = value;
-                Utility.nextTick(this.reLayout, this);
-            }
-        },
-        enumerable: true,
-        configurable: true
-    });
-    Object.defineProperty(AutoResizeView.prototype, "alignChild", {
-        get: function () {
-            return this._alignChild;
-        },
-        set: function (value) {
-            if (value !== this._alignChild) {
-                this._alignChild = value;
-                Utility.nextTick(this.reLayout, this);
-            }
-        },
-        enumerable: true,
-        configurable: true
-    });
-    AutoResizeView.prototype.addChild = function (target, position) {
-        _super.prototype.addChild.call(this, target, position);
-        // Utility.nextTick(this.reLayout, this);
-        this.reLayout();
-    };
-    AutoResizeView.prototype.removeChild = function (target) {
-        _super.prototype.removeChild.call(this, target);
-        Utility.nextTick(this.reLayout, this);
-    };
-    AutoResizeView.prototype._onChildResize = function () {
-        if (this._isPending) {
-            _super.prototype._onChildResize.call(this);
-        }
-        else {
-            Utility.nextTick(this.reLayout, this);
-        }
-    };
-    AutoResizeView.prototype.reLayout = function () {
-        if (this._isPending) {
-            return;
-        }
-        this._isPending = true;
-        if (!this.children || !this.children.length) {
-            this.width = 0;
-            this.height = 0;
-            this._isPending = false;
-            return;
-        }
-        var _a = this, layout = _a.layout, alignChild = _a.alignChild, children = _a.children, marginLeft = _a.marginLeft, marginRight = _a.marginRight, marginBottom = _a.marginBottom, marginTop = _a.marginTop, verticalSpacing = _a.verticalSpacing, horizentalSpacing = _a.horizentalSpacing;
-        var height;
-        var width;
-        var count = 0;
-        if (layout === exports.Layout.Horizontal) {
-            width = marginLeft;
-            height = 0;
-            children.forEach(function (sprite, index) {
-                if (sprite.width === 0 || !sprite.visible) {
-                    return;
-                }
-                if (sprite.height > height) {
-                    height = sprite.height;
-                }
-                sprite.x = width + sprite._originPixelX + (count > 0 ? horizentalSpacing : 0);
-                width += sprite.width;
-                count += 1;
-            });
-            if (width > marginLeft) {
-                this.width = width + marginRight;
-            }
-            else {
-                this.width = 0;
-            }
-            if (height != 0) {
-                if (alignChild === canvas2djs.AlignType.TOP) {
-                    this.children.forEach(function (sprite) {
-                        sprite.y = marginTop + sprite._originPixelY;
-                    });
-                }
-                else if (alignChild === canvas2djs.AlignType.BOTTOM) {
-                    this.children.forEach(function (sprite) {
-                        sprite.y = marginTop + height - sprite.height + sprite._originPixelY;
-                    });
-                }
-                else {
-                    this.children.forEach(function (sprite) {
-                        sprite.y = marginTop + (height - sprite.height) * 0.5 + sprite._originPixelY;
-                    });
-                }
-                height += marginTop + marginBottom;
-                this.height = height;
-            }
-            else {
-                this.height = 0;
-            }
-        }
-        else if (layout === exports.Layout.Vertical) {
-            width = 0;
-            height = marginTop;
-            children.forEach(function (sprite, index) {
-                if (sprite.height === 0 || !sprite.visible) {
-                    return;
-                }
-                if (sprite.width > width) {
-                    width = sprite.width;
-                }
-                sprite.y = height + sprite._originPixelY + (count > 0 ? verticalSpacing : 0);
-                height += sprite.height;
-                count += 1;
-            });
-            if (height > marginTop) {
-                this.height = height + marginBottom;
-            }
-            else {
-                this.height = 0;
-            }
-            if (width != 0) {
-                if (alignChild === canvas2djs.AlignType.LEFT) {
-                    this.children.forEach(function (sprite) {
-                        sprite.x = marginLeft + sprite._originPixelX;
-                    });
-                }
-                else if (alignChild === canvas2djs.AlignType.RIGHT) {
-                    this.children.forEach(function (sprite) {
-                        sprite.x = marginLeft + width - sprite.width + sprite._originPixelX;
-                    });
-                }
-                else {
-                    this.children.forEach(function (sprite) {
-                        sprite.x = marginLeft + (width - sprite.width) * 0.5 + sprite._originPixelX;
-                    });
-                }
-                width += marginLeft + marginRight;
-                this.width = width;
-            }
-            else {
-                this.width = 0;
-            }
-        }
-        this._isPending = false;
-    };
-    return AutoResizeView;
-}(canvas2djs.Sprite));
-
 var reBindableAttr = /^[:@]/;
 var ViewManager = (function () {
     function ViewManager() {
@@ -1854,18 +1014,22 @@ var ViewManager = (function () {
                 };
             }
         }
-        if (node.tag === "sprite") {
-            return this.createSprite(node, new canvas2djs.Sprite());
+        var ctor = ComponentManager.getBaseComponentCtorByName(node.tag);
+        if (ctor != null) {
+            return this.createSprite(node, new ctor());
         }
-        if (node.tag === 'ScrollView') {
-            return this.createSprite(node, new ScrollView());
-        }
-        if (node.tag === 'AutoLayoutView') {
-            return this.createSprite(node, new AutoLayoutView());
-        }
-        if (node.tag === 'AutoResizeView') {
-            return this.createSprite(node, new AutoResizeView());
-        }
+        // if (node.tag === "sprite") {
+        //     return this.createSprite(node, new Sprite());
+        // }
+        // if (node.tag === 'ScrollView') {
+        //     return this.createSprite(node, new ScrollView());
+        // }
+        // if (node.tag === 'AutoLayoutView') {
+        //     return this.createSprite(node, new AutoLayoutView());
+        // }
+        // if (node.tag === 'AutoResizeView') {
+        //     return this.createSprite(node, new AutoResizeView());
+        // }
         if (node.tag === "text" || node.tag === "bmfont") {
             return this.createTextLabel(node);
         }
@@ -2477,9 +1641,25 @@ var ComponentManager = (function () {
     }
     ComponentManager.registerComponent = function (name, ctor) {
         if (this.registeredComponentCtors[name] != null) {
-            Utility.warn("Component \"" + name + " is override,\"", ctor);
+            Utility.warn("Component \"" + name + "\" is override,", ctor);
         }
         this.registeredComponentCtors[name] = ctor;
+    };
+    ComponentManager.registerBaseComponent = function (name, ctor, extendComponentName) {
+        if (this.registeredBaseComponentCtors[name] != null) {
+            Utility.warn("Component \"" + name + "\" is override,", ctor);
+        }
+        this.registeredBaseComponentCtors[name] = ctor;
+        if (extendComponentName == null) {
+            return;
+        }
+        var properties = this.getRegisteredBaseComponentPropertiesByName(extendComponentName);
+        if (properties == null) {
+            Utility.warn("Component \"" + extendComponentName + "\" has not registered properties.");
+        }
+        else {
+            this.registerComponentProperties(ctor, properties);
+        }
     };
     ComponentManager.registerComponentProperty = function (component, property, type) {
         var uid = Utility.getUid(component.constructor);
@@ -2540,6 +1720,13 @@ var ComponentManager = (function () {
             component.onAfterMounted();
         }
     };
+    ComponentManager.getBaseComponentCtorByName = function (name) {
+        return this.registeredBaseComponentCtors[name];
+    };
+    ComponentManager.getRegisteredBaseComponentPropertiesByName = function (name) {
+        var ctor = this.registeredBaseComponentCtors[name];
+        return ctor && this.registeredComponentProperties[Utility.getUid(ctor)];
+    };
     ComponentManager.getRegisteredComponentPropertiesByName = function (name) {
         var ctor = this.registeredComponentCtors[name];
         return ctor && this.registeredComponentProperties[Utility.getUid(ctor)];
@@ -2572,6 +1759,7 @@ var ComponentManager = (function () {
     ComponentManager.componentModelSources = {};
     ComponentManager.registeredComponentProperties = {};
     ComponentManager.registeredComponentCtors = {};
+    ComponentManager.registeredBaseComponentCtors = {};
     return ComponentManager;
 }());
 function Component(name) {
@@ -2583,6 +1771,11 @@ function Property(type) {
     if (type === void 0) { type = String; }
     return function (component, property) {
         ComponentManager.registerComponentProperty(component, property, type);
+    };
+}
+function BaseComponent(name, extendComponentName) {
+    return function (componentCtor) {
+        ComponentManager.registerBaseComponent(name, componentCtor, extendComponentName);
     };
 }
 /**
@@ -2926,26 +2119,26 @@ var Loader = (function () {
         });
     };
     Loader.loadHtmlTemplate = function (url, version, onComplete) {
-        var requestUrl = url + '?v=' + version;
+        var requestUrl = url + '.html?v=' + version;
         if (loadedResources[requestUrl]) {
             return onComplete(true, loadedResources[requestUrl]);
         }
         Request.get(requestUrl, function (html) {
             loadedResources[requestUrl] = html;
-            TemplateManager.registerHtmlTemplate(Utility.getFilePath(url), html);
+            TemplateManager.registerHtmlTemplate(url, html);
             onComplete(true, html);
         }, function () {
             console.error("Error in loading Text file \"" + url + "\" width version \"" + version + "\"");
         });
     };
     Loader.loadJsonTemplate = function (url, version, onComplete) {
-        var requestUrl = url + '?v=' + version;
+        var requestUrl = url + '.json?v=' + version;
         if (loadedResources[requestUrl]) {
             return onComplete(true, loadedResources[requestUrl]);
         }
         Request.getJson(requestUrl, function (json) {
             loadedResources[requestUrl] = json;
-            TemplateManager.registerJsonTemplate(Utility.getFilePath(url), json);
+            TemplateManager.registerJsonTemplate(url, json);
             onComplete(true, json);
         }, function () {
             console.error("Error in loading Text file \"" + url + "\" width version \"" + version + "\"");
@@ -3053,10 +2246,10 @@ var Application = (function () {
     };
     Application.prototype.destroy = function () {
         this.loadingSceneComponent && ComponentManager.destroyComponent(this.loadingSceneComponent);
-        this.currSceneComponent && ComponentManager.destroyComponent(this.currSceneComponent);
+        this.currComponent && ComponentManager.destroyComponent(this.currComponent);
         this.stage.release();
         this.loadingScene = this.loadingSceneComponent = null;
-        this.currRouter = this.currScene = this.currSceneComponent = null;
+        this.currRouter = this.currScene = this.currComponent = null;
         this.stage = null;
     };
     Application.prototype.onUrlChanged = function (url) {
@@ -3071,15 +2264,15 @@ var Application = (function () {
         }
         this.lastState = this.currState;
         this.currState = result.state;
-        if (this.currSceneComponent) {
-            if (this.currSceneName === result.router.component) {
-                if (typeof this.currSceneComponent.onEnter === 'function') {
-                    this.currSceneComponent.onEnter(result.state, this.lastState);
+        if (this.currComponent) {
+            if (this.currComponentName === result.router.component) {
+                if (typeof this.currComponent.onEnter === 'function') {
+                    this.currComponent.onEnter(result.state, this.lastState);
                 }
                 return;
             }
-            ComponentManager.destroyComponent(this.currSceneComponent);
-            this.currSceneComponent = null;
+            ComponentManager.destroyComponent(this.currComponent);
+            this.currComponent = null;
             this.currScene.removeAllChildren(true);
         }
         this.loadComponentResource(result.router);
@@ -3117,7 +2310,8 @@ var Application = (function () {
         if (typeof component.onEnter === 'function') {
             component.onEnter(this.currState, this.lastState);
         }
-        this.currSceneComponent = component;
+        this.currComponentName = router.component;
+        this.currComponent = component;
         this.currScene.addChild(view.sprite);
         this.setLoadingState(false);
     };
@@ -3162,6 +2356,1069 @@ var Application = (function () {
     return Application;
 }());
 
+/**
+ * 需要记录的历史速度的最大次数。
+ */
+var MAX_VELOCITY_COUNT = 4;
+/**
+ * 记录的历史速度的权重列表。
+ */
+var VELOCITY_WEIGHTS = [1, 1.33, 1.66, 2];
+/**
+ * 当前速度所占的权重。
+ */
+var CURRENT_VELOCITY_WEIGHT = 2.33;
+/**
+ * 最小的改变速度，解决浮点数精度问题。
+ */
+var MINIMUM_VELOCITY = 0.02;
+/**
+ * 当容器自动滚动时要应用的摩擦系数
+ */
+var FRICTION = 0.998;
+/**
+ * 当容器自动滚动时并且滚动位置超出容器范围时要额外应用的摩擦系数
+ */
+var EXTRA_FRICTION = 0.95;
+/**
+ * 摩擦系数的自然对数
+ */
+var FRICTION_LOG = Math.log(FRICTION);
+var TouchScroll = (function () {
+    function TouchScroll(onUpdate, onEnded) {
+        this.onUpdate = onUpdate;
+        this.onEnded = onEnded;
+        this.offsetPos = 0;
+        this.currentPos = 0;
+        this.previousPos = 0;
+        this.maxScrollPos = 0;
+        this.previousTime = 0;
+        this.velocity = 0;
+        this.previousVelocity = [];
+        this._currScrollPos = 0;
+        this.bounce = true;
+        this.scrollFactor = 1;
+    }
+    Object.defineProperty(TouchScroll.prototype, "currScrollPos", {
+        get: function () {
+            return this._currScrollPos;
+        },
+        set: function (value) {
+            this._currScrollPos = value;
+            if (this.onUpdate) {
+                this.onUpdate(this._currScrollPos);
+            }
+        },
+        enumerable: true,
+        configurable: true
+    });
+    TouchScroll.prototype.start = function (position) {
+        this.stop();
+        this.offsetPos = position;
+        this.currentPos = this.previousPos = position;
+        this.previousTime = Date.now();
+        this.previousVelocity.length = 0;
+        this.startTick();
+    };
+    TouchScroll.prototype.stop = function () {
+        if (this.action) {
+            this.action.stop();
+            this.action = null;
+        }
+        this.velocity = 0;
+        this.stopTick();
+    };
+    TouchScroll.prototype.update = function (touchPos, maxScrollPos, scrollValue) {
+        maxScrollPos = Math.max(0, maxScrollPos);
+        this.currentPos = touchPos;
+        this.maxScrollPos = maxScrollPos;
+        var disMove = this.offsetPos - touchPos;
+        var scrollPos = disMove + scrollValue;
+        this.offsetPos = touchPos;
+        if (scrollPos < 0) {
+            if (!this.bounce) {
+                scrollPos = 0;
+            }
+            else {
+                scrollPos -= disMove * 0.5;
+            }
+        }
+        if (scrollPos > maxScrollPos) {
+            if (!this.bounce) {
+                scrollPos = maxScrollPos;
+            }
+            else {
+                scrollPos -= disMove * 0.5;
+            }
+        }
+        this.currScrollPos = scrollPos;
+    };
+    TouchScroll.prototype.finish = function (currScrollPos, maxScrollPos) {
+        this.stopTick();
+        var sum = this.velocity * CURRENT_VELOCITY_WEIGHT;
+        var prevVelocityX = this.previousVelocity;
+        var length = this.previousVelocity.length;
+        var totalWeight = CURRENT_VELOCITY_WEIGHT;
+        for (var i = 0; i < length; i++) {
+            var weight = VELOCITY_WEIGHTS[i];
+            sum += prevVelocityX[i] * weight;
+            totalWeight += weight;
+        }
+        var pixelsPerMS = sum / totalWeight;
+        var absPixelsPerMS = Math.abs(pixelsPerMS);
+        var duration = 0;
+        var posTo = 0;
+        if (absPixelsPerMS > MINIMUM_VELOCITY) {
+            posTo = currScrollPos + (pixelsPerMS - MINIMUM_VELOCITY) / FRICTION_LOG * 2 * this.scrollFactor;
+            if (posTo < 0 || posTo > maxScrollPos) {
+                posTo = currScrollPos;
+                while (Math.abs(pixelsPerMS) > MINIMUM_VELOCITY) {
+                    posTo -= pixelsPerMS;
+                    if (posTo < 0 || posTo > maxScrollPos) {
+                        pixelsPerMS *= FRICTION * EXTRA_FRICTION;
+                    }
+                    else {
+                        pixelsPerMS *= FRICTION;
+                    }
+                    duration += 1;
+                }
+            }
+            else {
+                duration = Math.log(MINIMUM_VELOCITY / absPixelsPerMS) / FRICTION_LOG;
+            }
+        }
+        else {
+            posTo = currScrollPos;
+        }
+        if (duration > 0) {
+            if (!this.bounce) {
+                if (posTo < 0) {
+                    posTo = 0;
+                }
+                else if (posTo > maxScrollPos) {
+                    posTo = maxScrollPos;
+                }
+            }
+            this.throwTo(posTo, duration);
+        }
+        else {
+            this.finishScrolling();
+        }
+    };
+    TouchScroll.prototype.onTick = function () {
+        var now = Date.now();
+        var timeOffset = now - this.previousTime;
+        if (timeOffset > 10) {
+            var previousVelocity = this.previousVelocity;
+            if (previousVelocity.length >= MAX_VELOCITY_COUNT) {
+                previousVelocity.shift();
+            }
+            this.velocity = (this.currentPos - this.previousPos) / timeOffset;
+            previousVelocity.push(this.velocity);
+            this.previousTime = now;
+            this.previousPos = this.currentPos;
+        }
+        this.startTick();
+    };
+    TouchScroll.prototype.throwTo = function (posTo, duration) {
+        var _this = this;
+        var currScrollPos = this._currScrollPos;
+        if (currScrollPos === posTo) {
+            return this.onEnded();
+        }
+        if (this.action) {
+            this.action.stop();
+        }
+        this.action = new canvas2djs.Action(this).to({
+            currScrollPos: {
+                dest: posTo,
+                easing: easeOut
+            }
+        }, duration / 1000).then(function () {
+            _this.finishScrolling();
+        }).start();
+    };
+    TouchScroll.prototype.finishScrolling = function () {
+        var posTo = this._currScrollPos;
+        var maxScrollPos = this.maxScrollPos;
+        if (posTo < 0) {
+            posTo = 0;
+        }
+        else if (posTo > maxScrollPos) {
+            posTo = maxScrollPos;
+        }
+        this.throwTo(posTo, 300);
+    };
+    TouchScroll.prototype.startTick = function () {
+        var _this = this;
+        this.stopTick();
+        this.timerId = setTimeout(function () { return _this.onTick(); });
+    };
+    TouchScroll.prototype.stopTick = function () {
+        clearTimeout(this.timerId);
+        this.timerId = null;
+    };
+    return TouchScroll;
+}());
+function easeOut(ratio) {
+    var invRatio = ratio - 1.0;
+    return invRatio * invRatio * invRatio + 1;
+}
+
+var SpriteProperties = {
+    x: Number,
+    y: Number,
+    width: Number,
+    height: Number,
+    scaleX: Number,
+    scaleY: Number,
+    originX: Number,
+    originY: Number,
+    bgColor: [String, Number],
+    radius: Number,
+    borderWidth: Number,
+    borderColor: [String, Number],
+    texture: String,
+    rotation: Number,
+    opacity: Number,
+    visible: Boolean,
+    alignX: Number,
+    alignY: Number,
+    flippedX: Boolean,
+    flippedY: Boolean,
+    clipOverflow: Boolean,
+    top: Number,
+    right: Number,
+    bottom: Number,
+    left: Number,
+    percentWidth: Number,
+    percentHeight: Number,
+    grid: Array,
+    sourceX: Number,
+    sourceY: Number,
+    sourceWidth: Number,
+    sourceHeight: Number,
+    blendMode: Number,
+    autoResize: Boolean,
+    touchEnabled: Boolean,
+    mouseEnabled: Boolean,
+};
+var TextLabelProperties = __assign({}, SpriteProperties, { text: String, fontName: String, textAlign: String, fontColor: [String, Number], fontSize: Number, lineHeight: Number, fontStyle: String, fontWeight: String, strokeColor: [String, Number], strokeWidth: Number, wordWrap: Boolean, textFlow: Array, autoResizeWidth: Boolean });
+var BMFontLabelProperties = __assign({}, SpriteProperties, { textureMap: Object, text: String, textAlign: String, wordWrap: Boolean, wordSpace: Number, lineHeight: Number, fontSize: Number, autoResizeHeight: Boolean });
+// var ScrollViewProperties = {
+//     ...SpriteProperties,
+//     bounce: Boolean,
+//     horizentalScroll: Boolean,
+//     verticalScroll: Boolean,
+// };
+// var AutoLayoutViewProperties = {
+//     ...ScrollViewProperties,
+//     layout: Number,
+//     verticalSpacing: Number,
+//     horizentalSpacing: Number,
+// };
+// var AutoResizeViewProperties = {
+//     ...SpriteProperties,
+//     layout: Number,
+//     marginLeft: Number,
+//     marginRight: Number,
+//     marginTop: Number,
+//     marginBottom: Number,
+//     verticalSpacing: Number,
+//     horizentalSpacing: Number,
+//     alignChild: Number,
+// };
+ComponentManager.registerBaseComponent("sprite", canvas2djs.Sprite);
+// ComponentManager.registerBaseComponent("text", TextLabel);
+// ComponentManager.registerBaseComponent("bmfont", BMFontLabel);
+ComponentManager.registerComponentProperties(canvas2djs.Sprite, SpriteProperties);
+ComponentManager.registerComponentProperties(canvas2djs.TextLabel, TextLabelProperties);
+ComponentManager.registerComponentProperties(canvas2djs.BMFontLabel, BMFontLabelProperties);
+// ComponentManager.registerComponentProperties(ScrollView, ScrollViewProperties);
+// ComponentManager.registerComponentProperties(AutoLayoutView, AutoLayoutViewProperties);
+// ComponentManager.registerComponentProperties(AutoResizeView, AutoResizeViewProperties);
+
+var ScrollView = (function (_super) {
+    __extends(ScrollView, _super);
+    function ScrollView(props) {
+        if (props === void 0) { props = {}; }
+        var _this = _super.call(this, __assign({}, props, { clipOverflow: true })) || this;
+        _this.scrollPos = { x: 0, y: 0 };
+        _this.size = { width: 0, height: 0 };
+        _this.onUpdateHorizentalScroll = function (scrollX) {
+            _this.scroller.x = -scrollX;
+            _this.scrollPos.x = scrollX;
+            _this.onScroll && _this.onScroll(__assign({}, _this.scrollPos));
+            _this.emit(ScrollView_1.SCROLL, __assign({}, _this.scrollPos));
+        };
+        _this.onUpdateVerticalScroll = function (scrollY) {
+            _this.scroller.y = -scrollY;
+            _this.scrollPos.y = scrollY;
+            _this.onScroll && _this.onScroll(__assign({}, _this.scrollPos));
+            _this.emit(ScrollView_1.SCROLL, __assign({}, _this.scrollPos));
+        };
+        _this.onTouchBeginHandler = function (helpers) {
+            if (!_this.horizentalScroll && !_this.verticalScroll) {
+                return;
+            }
+            var helper = helpers[0];
+            _this.beginPosId = helper.identifier;
+            _this.beginPos = { x: helper.stageX, y: helper.stageY };
+            if (_this.horizentalScroll) {
+                _this.touchScrollHorizental.start(helper.stageX);
+            }
+            if (_this.verticalScroll) {
+                _this.touchScrollVertical.start(helper.stageY);
+            }
+            // helper.stopPropagation();
+            _this.stage.on(canvas2djs.UIEvent.TOUCH_MOVED, _this.onTouchMovedHandler);
+            _this.stage.on(canvas2djs.UIEvent.TOUCH_ENDED, _this.onTouchEndedHandler);
+        };
+        _this.onTouchMovedHandler = function (helpers) {
+            if (!_this.beginPos) {
+                return;
+            }
+            var touchPoint = helpers.filter(function (e) { return e.identifier === _this.beginPosId; })[0];
+            if (!touchPoint) {
+                return;
+            }
+            var beginPos = _this.beginPos;
+            if (_this.horizentalScroll && Math.abs(touchPoint.stageX - beginPos.x) >= ScrollView_1.scrollThreshold) {
+                _this.touchScrollHorizental.update(touchPoint.stageX, _this.size.width - _this.width, _this.scrollPos.x);
+            }
+            if (_this.verticalScroll && Math.abs(touchPoint.stageY - beginPos.y) >= ScrollView_1.scrollThreshold) {
+                _this.touchScrollVertical.update(touchPoint.stageY, _this.size.height - _this.height, _this.scrollPos.y);
+            }
+            touchPoint.stopPropagation();
+        };
+        _this.onTouchEndedHandler = function (e) {
+            _this.stage.removeListener(canvas2djs.UIEvent.TOUCH_MOVED, _this.onTouchMovedHandler);
+            _this.stage.removeListener(canvas2djs.UIEvent.TOUCH_ENDED, _this.onTouchEndedHandler);
+            if (!_this.beginPos) {
+                return;
+            }
+            if (_this.horizentalScroll) {
+                _this.touchScrollHorizental.finish(_this.scrollPos.x, _this.size.width - _this.width);
+            }
+            if (_this.verticalScroll) {
+                _this.touchScrollVertical.finish(_this.scrollPos.y, _this.size.height - _this.height);
+            }
+            e[0].stopPropagation();
+            _this.beginPos = _this.beginPosId = null;
+        };
+        _this.scroller = new canvas2djs.Sprite({
+            originX: 0,
+            originY: 0,
+            left: 0,
+            right: 0,
+            top: 0,
+            bottom: 0,
+        });
+        _this.scroller.addChild = function () {
+            var args = [];
+            for (var _i = 0; _i < arguments.length; _i++) {
+                args[_i] = arguments[_i];
+            }
+            canvas2djs.Sprite.prototype.addChild.apply(_this.scroller, args);
+            Utility.nextTick(_this.measureViewportSize, _this);
+        };
+        _this.scroller.removeChild = function () {
+            var args = [];
+            for (var _i = 0; _i < arguments.length; _i++) {
+                args[_i] = arguments[_i];
+            }
+            canvas2djs.Sprite.prototype.removeChild.apply(_this.scroller, args);
+            Utility.nextTick(_this.measureViewportSize, _this);
+        };
+        _this.bounce = _this.bounce == null ? true : _this.bounce;
+        _super.prototype.addChild.call(_this, _this.scroller);
+        _this.touchScrollHorizental = new TouchScroll(_this.onUpdateHorizentalScroll, function () { });
+        _this.touchScrollVertical = new TouchScroll(_this.onUpdateVerticalScroll, function () { });
+        _this.touchScrollHorizental.bounce = _this.touchScrollVertical.bounce = _this.bounce;
+        _this.on(canvas2djs.UIEvent.TOUCH_BEGIN, _this.onTouchBeginHandler);
+        return _this;
+    }
+    ScrollView_1 = ScrollView;
+    ScrollView.prototype.addChild = function (child, position) {
+        this.scroller.addChild(child, position);
+        Utility.nextTick(this.measureViewportSize, this);
+    };
+    ScrollView.prototype.removeChild = function (child) {
+        this.scroller.removeChild(child);
+        Utility.nextTick(this.measureViewportSize, this);
+    };
+    ScrollView.prototype.removeAllChildren = function (recusive) {
+        this.scroller.removeAllChildren(recusive);
+    };
+    ScrollView.prototype.getScrollerSize = function () {
+        return __assign({}, this.size);
+    };
+    // protected _resizeWidth() {
+    //     super._resizeWidth();
+    //     Utility.nextTick(this.measureViewportSize, this);
+    // }
+    // protected _resizeHeight() {
+    //     super._resizeHeight();
+    //     Utility.nextTick(this.measureViewportSize, this);
+    // }
+    ScrollView.prototype._onChildResize = function () {
+        // this.measureViewportSize();
+        Utility.nextTick(this.measureViewportSize, this);
+        _super.prototype._onChildResize.call(this);
+    };
+    ScrollView.prototype.measureViewportSize = function () {
+        if (!this.stage) {
+            return;
+        }
+        var width = 0;
+        var height = 0;
+        if (this.scroller.children) {
+            this.scroller.children.forEach(function (sprite) {
+                var right = sprite.x + sprite.width - sprite._originPixelX;
+                var bottom = sprite.y + sprite.height - sprite._originPixelY;
+                if (right > width) {
+                    width = right;
+                }
+                if (bottom > height) {
+                    height = bottom;
+                }
+            });
+        }
+        if (height < this.size.height && this.verticalScroll) {
+            this.onUpdateVerticalScroll(0);
+        }
+        if (width < this.size.width && this.horizentalScroll) {
+            this.onUpdateHorizentalScroll(0);
+        }
+        this.size = { width: width, height: height };
+    };
+    ScrollView.prototype.release = function (recusive) {
+        this.touchScrollHorizental.stop();
+        this.touchScrollVertical.stop();
+        this.scroller.addChild = this.removeChild = null;
+        _super.prototype.removeChild.call(this, this.scroller);
+        _super.prototype.release.call(this, recusive);
+    };
+    ScrollView.SCROLL = "scroll";
+    ScrollView.scrollThreshold = 5;
+    __decorate([
+        Property(Boolean)
+    ], ScrollView.prototype, "horizentalScroll", void 0);
+    __decorate([
+        Property(Boolean)
+    ], ScrollView.prototype, "verticalScroll", void 0);
+    __decorate([
+        Property(Boolean)
+    ], ScrollView.prototype, "bounce", void 0);
+    ScrollView = ScrollView_1 = __decorate([
+        BaseComponent("ScrollView", "sprite")
+    ], ScrollView);
+    return ScrollView;
+    var ScrollView_1;
+}(canvas2djs.Sprite));
+
+(function (Layout) {
+    Layout[Layout["Vertical"] = 0] = "Vertical";
+    Layout[Layout["Horizontal"] = 1] = "Horizontal";
+})(exports.Layout || (exports.Layout = {}));
+var AutoLayoutView = (function (_super) {
+    __extends(AutoLayoutView, _super);
+    function AutoLayoutView(props) {
+        if (props === void 0) { props = {}; }
+        var _this = _super.call(this, __assign({}, props)) || this;
+        _this._layout = _this._layout == null ? exports.Layout.Horizontal : _this._layout;
+        _this._horizentalAlign = _this._horizentalAlign == null ? canvas2djs.AlignType.CENTER : _this._horizentalAlign;
+        _this._verticalAlign = _this._verticalAlign == null ? canvas2djs.AlignType.CENTER : _this._verticalAlign;
+        _this._autoResizeHeight = _this._autoResizeHeight == null ? false : _this._autoResizeHeight;
+        _this._verticalSpacing = _this._verticalSpacing || 0;
+        _this._horizentalSpacing = _this._horizentalSpacing || 0;
+        _this.scroller.addChild = function (target, position) {
+            target.left = -99999;
+            canvas2djs.Sprite.prototype.addChild.call(_this.scroller, target, position);
+            Utility.nextTick(_this.reLayout, _this);
+        };
+        _this.scroller.removeChild = function (target) {
+            canvas2djs.Sprite.prototype.removeChild.call(_this.scroller, target);
+            Utility.nextTick(_this.reLayout, _this);
+        };
+        return _this;
+    }
+    Object.defineProperty(AutoLayoutView.prototype, "horizentalAlign", {
+        get: function () {
+            return this._horizentalAlign;
+        },
+        set: function (value) {
+            if (value !== this._horizentalAlign) {
+                this._horizentalAlign = value;
+                Utility.nextTick(this.reLayout, this);
+            }
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(AutoLayoutView.prototype, "verticalAlign", {
+        get: function () {
+            return this._verticalAlign;
+        },
+        set: function (value) {
+            if (value !== this._verticalAlign) {
+                this._verticalAlign = value;
+                Utility.nextTick(this.reLayout, this);
+            }
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(AutoLayoutView.prototype, "layout", {
+        get: function () {
+            return this._layout;
+        },
+        set: function (value) {
+            if (value !== this._layout) {
+                this._layout = value;
+                Utility.nextTick(this.reLayout, this);
+            }
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(AutoLayoutView.prototype, "autoResizeHeight", {
+        get: function () {
+            return this._autoResizeHeight;
+        },
+        set: function (value) {
+            if (this._autoResizeHeight !== value) {
+                this._autoResizeHeight = value;
+                if (value) {
+                    this.height = this.size.height;
+                }
+            }
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(AutoLayoutView.prototype, "verticalSpacing", {
+        get: function () {
+            return this._verticalSpacing;
+        },
+        set: function (value) {
+            if (value !== this._verticalSpacing) {
+                this._verticalSpacing = value;
+                Utility.nextTick(this.reLayout, this);
+            }
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(AutoLayoutView.prototype, "horizentalSpacing", {
+        get: function () {
+            return this._horizentalSpacing;
+        },
+        set: function (value) {
+            if (value !== this._horizentalSpacing) {
+                this._horizentalSpacing = value;
+                Utility.nextTick(this.reLayout, this);
+            }
+        },
+        enumerable: true,
+        configurable: true
+    });
+    AutoLayoutView.prototype.addChild = function (target, position) {
+        target.left = -99999;
+        canvas2djs.Sprite.prototype.addChild.call(this.scroller, target, position);
+        Utility.nextTick(this.reLayout, this);
+    };
+    AutoLayoutView.prototype.removeChild = function (target) {
+        canvas2djs.Sprite.prototype.removeChild.call(this.scroller, target);
+        Utility.nextTick(this.reLayout, this);
+    };
+    AutoLayoutView.prototype._onChildResize = function () {
+        if (this._isPending) {
+            _super.prototype._onChildResize.call(this);
+        }
+        else {
+            Utility.nextTick(this.reLayout, this);
+        }
+    };
+    AutoLayoutView.prototype.reLayout = function () {
+        var _this = this;
+        if (this._isPending || !this.stage) {
+            return;
+        }
+        if (!this.scroller.children || !this.scroller.children.length) {
+            this.size = { width: 0, height: 0 };
+            if (this._autoResizeHeight) {
+                this.height = 0;
+            }
+            if (this.verticalScroll) {
+                this.touchScrollVertical.stop();
+            }
+            if (this.horizentalScroll) {
+                this.touchScrollVertical.stop();
+            }
+            return;
+        }
+        this._isPending = true;
+        var children = this.scroller.children;
+        var _a = this, width = _a.width, height = _a.height, verticalSpacing = _a.verticalSpacing, horizentalSpacing = _a.horizentalSpacing;
+        var maxHeight = 0;
+        var maxWidth = 0;
+        var x = 0;
+        var y = 0;
+        var beginIndex = 0;
+        var count = 0;
+        var prevExist;
+        if (this.layout === exports.Layout.Horizontal) {
+            var list_1 = [];
+            children.forEach(function (sprite, index) {
+                sprite.left = null;
+                if (sprite.width === 0) {
+                    return;
+                }
+                var spacing = (prevExist ? horizentalSpacing : 0);
+                var right = x + sprite.width + spacing;
+                if (right <= width || index === 0) {
+                    // sprite.x = x + (sprite as any)._originPixelX + spacing;
+                    list_1.push(sprite);
+                    x = right;
+                    prevExist = true;
+                }
+                else {
+                    _this.applyHorizentalAlign(list_1, x);
+                    y += count > 0 ? verticalSpacing : 0;
+                    _this.alignChildHorizental(beginIndex, index - 1, children, y, maxHeight);
+                    beginIndex = index;
+                    y += maxHeight;
+                    x = sprite.width;
+                    // sprite.x = (sprite as any)._originPixelX;
+                    list_1 = [sprite];
+                    maxHeight = 0;
+                    count += 1;
+                }
+                if (sprite.height > maxHeight) {
+                    maxHeight = sprite.height;
+                }
+            });
+            this.applyHorizentalAlign(list_1, x);
+            y += count > 0 ? verticalSpacing : 0;
+            this.alignChildHorizental(beginIndex, children.length - 1, children, y, maxHeight);
+        }
+        else if (this.layout === exports.Layout.Vertical) {
+            var list_2 = [];
+            children.forEach(function (sprite, index) {
+                if (sprite.height === 0) {
+                    return;
+                }
+                var spacing = (prevExist ? verticalSpacing : 0);
+                var bottom = y + sprite.height;
+                if (bottom <= height || index === 0) {
+                    // sprite.y = y + (sprite as any)._originPixelY + spacing;
+                    list_2.push(sprite);
+                    y = bottom;
+                    prevExist = true;
+                }
+                else {
+                    _this.applayVerticalAlign(list_2, y);
+                    x += count > 0 ? horizentalSpacing : 0;
+                    _this.alignChildVirtical(beginIndex, index - 1, children, x, maxWidth);
+                    beginIndex = index;
+                    x += maxWidth;
+                    y = sprite.height;
+                    // sprite.y = (sprite as any)._originPixelY;
+                    list_2 = [sprite];
+                    maxWidth = 0;
+                    count += 1;
+                }
+                if (sprite.width > maxWidth) {
+                    maxWidth = sprite.width;
+                }
+            });
+            this.applayVerticalAlign(list_2, y);
+            x += count > 0 ? horizentalSpacing : 0;
+            this.alignChildHorizental(beginIndex, children.length - 1, children, x, maxWidth);
+        }
+        else {
+            Utility.warn("Unknow layout", this.layout);
+        }
+        this.measureViewportSize();
+        if (this._autoResizeHeight) {
+            this.height = this.size.height;
+        }
+        this._isPending = false;
+    };
+    AutoLayoutView.prototype.applyHorizentalAlign = function (sprites, totalWidth) {
+        var horizentalSpacing = this._horizentalSpacing;
+        var startX = 0;
+        if (this._horizentalAlign === canvas2djs.AlignType.CENTER) {
+            startX = (this.width - totalWidth) * 0.5;
+        }
+        else if (this._horizentalAlign === canvas2djs.AlignType.RIGHT) {
+            startX = this.width - totalWidth;
+        }
+        sprites.forEach(function (sprite, i) {
+            var spacing = (i > 0 ? horizentalSpacing : 0);
+            sprite.x = startX + sprite._originPixelX + spacing;
+            startX += sprite.width + spacing;
+        });
+    };
+    AutoLayoutView.prototype.applayVerticalAlign = function (sprites, totalHeight) {
+        var verticalSpacing = this._verticalSpacing;
+        var startY = 0;
+        if (this._verticalAlign === canvas2djs.AlignType.CENTER) {
+            startY = (this.height - totalHeight) * 0.5;
+        }
+        else if (this._verticalAlign === canvas2djs.AlignType.BOTTOM) {
+            startY = this.height - totalHeight;
+        }
+        sprites.forEach(function (sprite, i) {
+            var spacing = (i > 0 ? verticalSpacing : 0);
+            sprite.y = startY + sprite._originPixelY + spacing;
+            startY += sprite.height + spacing;
+        });
+    };
+    AutoLayoutView.prototype.alignChildVirtical = function (begin, end, sprites, x, width) {
+        if (end < begin) {
+            return;
+        }
+        var align = this._horizentalAlign;
+        if (align === canvas2djs.AlignType.LEFT) {
+            for (var i = begin; i <= end; i++) {
+                var sprite = sprites[i];
+                sprite.x = x + sprite._originPixelX;
+            }
+        }
+        else if (align === canvas2djs.AlignType.RIGHT) {
+            for (var i = begin; i <= end; i++) {
+                var sprite = sprites[i];
+                sprite.x = x + width - sprite.width + sprite._originPixelX;
+            }
+        }
+        else {
+            for (var i = begin; i <= end; i++) {
+                var sprite = sprites[i];
+                sprite.x = x + (width - sprite.width) * 0.5 + sprite._originPixelX;
+            }
+        }
+    };
+    AutoLayoutView.prototype.alignChildHorizental = function (begin, end, sprites, y, height) {
+        if (end < begin) {
+            return;
+        }
+        var align = this._verticalAlign;
+        if (align === canvas2djs.AlignType.TOP) {
+            for (var i = begin; i <= end; i++) {
+                var sprite = sprites[i];
+                sprite.y = y + sprite._originPixelY;
+            }
+        }
+        else if (align === canvas2djs.AlignType.BOTTOM) {
+            for (var i = begin; i <= end; i++) {
+                var sprite = sprites[i];
+                sprite.y = y + height - sprite.height + sprite._originPixelY;
+            }
+        }
+        else {
+            for (var i = begin; i <= end; i++) {
+                var sprite = sprites[i];
+                sprite.y = y + (height - sprite.height) * 0.5 + sprite._originPixelY;
+            }
+        }
+    };
+    __decorate([
+        Property(Number)
+    ], AutoLayoutView.prototype, "horizentalAlign", null);
+    __decorate([
+        Property(Number)
+    ], AutoLayoutView.prototype, "verticalAlign", null);
+    __decorate([
+        Property(Number)
+    ], AutoLayoutView.prototype, "layout", null);
+    __decorate([
+        Property(Boolean)
+    ], AutoLayoutView.prototype, "autoResizeHeight", null);
+    __decorate([
+        Property(Number)
+    ], AutoLayoutView.prototype, "verticalSpacing", null);
+    __decorate([
+        Property(Number)
+    ], AutoLayoutView.prototype, "horizentalSpacing", null);
+    AutoLayoutView = __decorate([
+        BaseComponent("AutoLayoutView", "ScrollView")
+    ], AutoLayoutView);
+    return AutoLayoutView;
+}(ScrollView));
+
+var AutoResizeView = (function (_super) {
+    __extends(AutoResizeView, _super);
+    function AutoResizeView(props) {
+        if (props === void 0) { props = {}; }
+        var _this = _super.call(this, __assign({}, props)) || this;
+        _this._marginTop = _this._marginTop || 0;
+        _this._marginRight = _this._marginRight || 0;
+        _this._marginBottom = _this._marginBottom || 0;
+        _this._marginLeft = _this._marginLeft || 0;
+        _this._verticalSpacing = _this._verticalSpacing || 0;
+        _this._horizentalSpacing = _this._horizentalSpacing || 0;
+        _this._layout = _this._layout == null ? exports.Layout.Horizontal : _this._layout;
+        _this._alignChild = _this._alignChild == null ? canvas2djs.AlignType.CENTER : _this._alignChild;
+        return _this;
+    }
+    Object.defineProperty(AutoResizeView.prototype, "marginLeft", {
+        get: function () {
+            return this._marginLeft;
+        },
+        set: function (value) {
+            if (value !== this._marginLeft) {
+                this._marginLeft = value;
+                Utility.nextTick(this.reLayout, this);
+            }
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(AutoResizeView.prototype, "marginRight", {
+        get: function () {
+            return this._marginRight;
+        },
+        set: function (value) {
+            if (value !== this._marginRight) {
+                this._marginRight = value;
+                Utility.nextTick(this.reLayout, this);
+            }
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(AutoResizeView.prototype, "marginBottom", {
+        get: function () {
+            return this._marginBottom;
+        },
+        set: function (value) {
+            if (value !== this._marginBottom) {
+                this._marginBottom = value;
+                Utility.nextTick(this.reLayout, this);
+            }
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(AutoResizeView.prototype, "marginTop", {
+        get: function () {
+            return this._marginTop;
+        },
+        set: function (value) {
+            if (value !== this._marginTop) {
+                this._marginTop = value;
+                Utility.nextTick(this.reLayout, this);
+            }
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(AutoResizeView.prototype, "verticalSpacing", {
+        get: function () {
+            return this._verticalSpacing;
+        },
+        set: function (value) {
+            if (value !== this._verticalSpacing) {
+                this._verticalSpacing = value;
+                Utility.nextTick(this.reLayout, this);
+            }
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(AutoResizeView.prototype, "horizentalSpacing", {
+        get: function () {
+            return this._horizentalSpacing;
+        },
+        set: function (value) {
+            if (value !== this._horizentalSpacing) {
+                this._horizentalSpacing = value;
+                Utility.nextTick(this.reLayout, this);
+            }
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(AutoResizeView.prototype, "layout", {
+        get: function () {
+            return this._layout;
+        },
+        set: function (value) {
+            if (value !== this._layout) {
+                this._layout = value;
+                Utility.nextTick(this.reLayout, this);
+            }
+        },
+        enumerable: true,
+        configurable: true
+    });
+    Object.defineProperty(AutoResizeView.prototype, "alignChild", {
+        get: function () {
+            return this._alignChild;
+        },
+        set: function (value) {
+            if (value !== this._alignChild) {
+                this._alignChild = value;
+                Utility.nextTick(this.reLayout, this);
+            }
+        },
+        enumerable: true,
+        configurable: true
+    });
+    AutoResizeView.prototype.addChild = function (target, position) {
+        _super.prototype.addChild.call(this, target, position);
+        Utility.nextTick(this.reLayout, this);
+        // this.reLayout();
+    };
+    AutoResizeView.prototype.removeChild = function (target) {
+        _super.prototype.removeChild.call(this, target);
+        Utility.nextTick(this.reLayout, this);
+    };
+    AutoResizeView.prototype._onChildResize = function () {
+        if (this._isPending) {
+            _super.prototype._onChildResize.call(this);
+        }
+        else {
+            Utility.nextTick(this.reLayout, this);
+        }
+    };
+    AutoResizeView.prototype.reLayout = function () {
+        if (this._isPending) {
+            return;
+        }
+        this._isPending = true;
+        if (!this.children || !this.children.length) {
+            this.width = 0;
+            this.height = 0;
+            this._isPending = false;
+            return;
+        }
+        var _a = this, layout = _a.layout, alignChild = _a.alignChild, children = _a.children, marginLeft = _a.marginLeft, marginRight = _a.marginRight, marginBottom = _a.marginBottom, marginTop = _a.marginTop, verticalSpacing = _a.verticalSpacing, horizentalSpacing = _a.horizentalSpacing;
+        var height;
+        var width;
+        var count = 0;
+        if (layout === exports.Layout.Horizontal) {
+            width = marginLeft;
+            height = 0;
+            children.forEach(function (sprite, index) {
+                if (sprite.width === 0 || !sprite.visible) {
+                    return;
+                }
+                if (sprite.height > height) {
+                    height = sprite.height;
+                }
+                var spacing = count > 0 ? horizentalSpacing : 0;
+                sprite.x = width + sprite._originPixelX + spacing;
+                width += sprite.width + spacing;
+                count += 1;
+            });
+            if (width > marginLeft) {
+                this.width = width + marginRight;
+            }
+            else {
+                this.width = 0;
+            }
+            if (height != 0) {
+                if (alignChild === canvas2djs.AlignType.TOP) {
+                    this.children.forEach(function (sprite) {
+                        sprite.y = marginTop + sprite._originPixelY;
+                    });
+                }
+                else if (alignChild === canvas2djs.AlignType.BOTTOM) {
+                    this.children.forEach(function (sprite) {
+                        sprite.y = marginTop + height - sprite.height + sprite._originPixelY;
+                    });
+                }
+                else {
+                    this.children.forEach(function (sprite) {
+                        sprite.y = marginTop + (height - sprite.height) * 0.5 + sprite._originPixelY;
+                    });
+                }
+                height += marginTop + marginBottom;
+                this.height = height;
+            }
+            else {
+                this.height = 0;
+            }
+        }
+        else if (layout === exports.Layout.Vertical) {
+            width = 0;
+            height = marginTop;
+            children.forEach(function (sprite, index) {
+                if (sprite.height === 0 || !sprite.visible) {
+                    return;
+                }
+                if (sprite.width > width) {
+                    width = sprite.width;
+                }
+                var spacing = count > 0 ? verticalSpacing : 0;
+                sprite.y = height + sprite._originPixelY + spacing;
+                height += sprite.height + spacing;
+                count += 1;
+            });
+            if (height > marginTop) {
+                this.height = height + marginBottom;
+            }
+            else {
+                this.height = 0;
+            }
+            if (width != 0) {
+                if (alignChild === canvas2djs.AlignType.LEFT) {
+                    this.children.forEach(function (sprite) {
+                        sprite.x = marginLeft + sprite._originPixelX;
+                    });
+                }
+                else if (alignChild === canvas2djs.AlignType.RIGHT) {
+                    this.children.forEach(function (sprite) {
+                        sprite.x = marginLeft + width - sprite.width + sprite._originPixelX;
+                    });
+                }
+                else {
+                    this.children.forEach(function (sprite) {
+                        sprite.x = marginLeft + (width - sprite.width) * 0.5 + sprite._originPixelX;
+                    });
+                }
+                width += marginLeft + marginRight;
+                this.width = width;
+            }
+            else {
+                this.width = 0;
+            }
+        }
+        this._isPending = false;
+    };
+    __decorate([
+        Property(Number)
+    ], AutoResizeView.prototype, "marginLeft", null);
+    __decorate([
+        Property(Number)
+    ], AutoResizeView.prototype, "marginRight", null);
+    __decorate([
+        Property(Number)
+    ], AutoResizeView.prototype, "marginBottom", null);
+    __decorate([
+        Property(Number)
+    ], AutoResizeView.prototype, "marginTop", null);
+    __decorate([
+        Property(Number)
+    ], AutoResizeView.prototype, "verticalSpacing", null);
+    __decorate([
+        Property(Number)
+    ], AutoResizeView.prototype, "horizentalSpacing", null);
+    __decorate([
+        Property(Number)
+    ], AutoResizeView.prototype, "layout", null);
+    __decorate([
+        Property(Number)
+    ], AutoResizeView.prototype, "alignChild", null);
+    AutoResizeView = __decorate([
+        BaseComponent("AutoResizeView", "sprite")
+    ], AutoResizeView);
+    return AutoResizeView;
+}(canvas2djs.Sprite));
+
 var WeakRef = (function () {
     function WeakRef() {
     }
@@ -3198,6 +3455,7 @@ var WeakRef = (function () {
 
 var regParam = /\s+in\s+/;
 var regComma = /\s*,\s*/;
+var regTrackby = /trackby\s+(\w+)/;
 var IncludeDirective = (function () {
     function IncludeDirective() {
     }
@@ -3305,10 +3563,7 @@ var SlotPlaceholderDirective = (function () {
         }
         var slotViews = context.slotViews[name];
         var placeholder = view.instance;
-        var slotSprites = [];
-        slotViews.forEach(function (slotView) {
-            slotSprites.push.apply(slotSprites, slotView.sprites);
-        });
+        var slotSprites = slotViews.map(function (v) { return v.sprite; });
         (_a = placeholder.parent).replaceChild.apply(_a, [placeholder].concat(slotSprites));
         var _a;
     };
@@ -3334,6 +3589,9 @@ var ReferenceDirective = (function () {
     ], ReferenceDirective);
     return ReferenceDirective;
 }());
+/**
+ * :for="item in list trackby id"
+ */
 var ForLoopDirective = (function () {
     function ForLoopDirective() {
     }
@@ -3345,6 +3603,7 @@ var ForLoopDirective = (function () {
         this.component = component;
         this.itemDatas = [];
         this.itemSprites = [];
+        this.originalExp = expression;
         this.parseExpression(expression);
         this.unWatch = WatcherManager.watch(component, this.expression, function (newValue, oldValue) {
             _this.onUpdate(newValue, oldValue);
@@ -3367,12 +3626,25 @@ var ForLoopDirective = (function () {
     };
     ForLoopDirective.prototype.getItemComponentByItem = function (item) {
         var value = item.value;
-        var components = WeakRef.get(this.refKey, value);
         var itemComponent;
-        if (components) {
-            for (var i = 0; itemComponent = components[i]; i++) {
-                if (itemComponent.__idle__) {
+        if (this.trackByKey) {
+            var trackValue = value[this.trackKey];
+            for (var i = 0; itemComponent = this.itemComponents[i]; i++) {
+                if (itemComponent[this.keyValueName.value][this.trackKey] === trackValue) {
+                    if (!itemComponent.__idle__) {
+                        Utility.warn("\"" + this.trackKey + "\" is not an unique key in directive ':for=\"" + this.originalExp + "\"'");
+                    }
                     break;
+                }
+            }
+        }
+        else {
+            var components = WeakRef.get(this.refKey, value);
+            if (components) {
+                for (var i = 0; itemComponent = components[i]; i++) {
+                    if (itemComponent.__idle__) {
+                        break;
+                    }
                 }
             }
         }
@@ -3404,13 +3676,15 @@ var ForLoopDirective = (function () {
     };
     ForLoopDirective.prototype.createItemComponent = function (item) {
         var value = item.value;
-        var itemComponents = WeakRef.get(this.refKey, value);
         var itemComponent = ComponentManager.createComponentByConstructor(this.itemComponentCtor);
-        if (itemComponents == null) {
-            itemComponents = [];
-            WeakRef.set(this.refKey, value, itemComponents);
+        if (!this.trackByKey) {
+            var itemComponents = WeakRef.get(this.refKey, value);
+            if (itemComponents == null) {
+                itemComponents = [];
+                WeakRef.set(this.refKey, value, itemComponents);
+            }
+            itemComponents.push(itemComponent);
         }
-        itemComponents.push(itemComponent);
         itemComponent.$parent = this.component;
         this.updateItemComponent(itemComponent, item);
         return itemComponent;
@@ -3420,17 +3694,19 @@ var ForLoopDirective = (function () {
         this.itemComponents.forEach(function (itemComponent) {
             if (itemComponent.__idle__ || forceRemove) {
                 var value = itemComponent[_this.keyValueName.value];
-                var components = WeakRef.get(_this.refKey, value);
                 var sprite = WeakRef.get(_this.refKey, itemComponent);
                 itemComponent.$parent = null;
                 ComponentManager.destroyComponent(itemComponent);
-                WeakRef.remove(_this.refKey, itemComponent);
                 if (sprite.parent) {
                     sprite.parent.removeChild(sprite);
                 }
-                Utility.removeItemFromArray(itemComponent, components);
-                if (!components.length) {
-                    WeakRef.remove(_this.refKey, value);
+                if (!_this.trackByKey) {
+                    var components = WeakRef.get(_this.refKey, value);
+                    WeakRef.remove(_this.refKey, itemComponent);
+                    Utility.removeItemFromArray(itemComponent, components);
+                    if (!components.length) {
+                        WeakRef.remove(_this.refKey, value);
+                    }
                 }
             }
         });
@@ -3470,8 +3746,13 @@ var ForLoopDirective = (function () {
             ForLoopDirective_1.itemComponentCtors[expression] = ctor;
             ComponentManager.registerComponentProperties(ctor, properties);
         }
+        var trackby = parts[1].match(regTrackby);
+        if (trackby) {
+            this.trackByKey = true;
+            this.trackKey = trackby[1];
+        }
         this.keyValueName = { key: key, value: value };
-        this.expression = parts[1].trim();
+        this.expression = parts[1].replace(regTrackby, '').trim();
         this.itemComponentCtor = ForLoopDirective_1.itemComponentCtors[expression];
     };
     ForLoopDirective.prototype.toList = function (target) {
@@ -3520,61 +3801,12 @@ var ForLoopDirective = (function () {
     var ForLoopDirective_1;
 }());
 
-var SpriteProperties = {
-    x: Number,
-    y: Number,
-    width: Number,
-    height: Number,
-    scaleX: Number,
-    scaleY: Number,
-    originX: Number,
-    originY: Number,
-    bgColor: [String, Number],
-    radius: Number,
-    borderWidth: Number,
-    borderColor: [String, Number],
-    texture: String,
-    rotation: Number,
-    opacity: Number,
-    visible: Boolean,
-    alignX: Number,
-    alignY: Number,
-    flippedX: Boolean,
-    flippedY: Boolean,
-    clipOverflow: Boolean,
-    top: Number,
-    right: Number,
-    bottom: Number,
-    left: Number,
-    percentWidth: Number,
-    percentHeight: Number,
-    grid: Array,
-    sourceX: Number,
-    sourceY: Number,
-    sourceWidth: Number,
-    sourceHeight: Number,
-    blendMode: Number,
-    autoResize: Boolean,
-    touchEnabled: Boolean,
-    mouseEnabled: Boolean,
-};
-var TextLabelProperties = __assign({}, SpriteProperties, { text: String, fontName: String, textAlign: Number, fontColor: [String, Number], fontSize: Number, lineHeight: Number, fontStyle: String, fontWeight: String, strokeColor: [String, Number], strokeWidth: Number, wordWrap: Boolean, textFlow: Array, autoResizeWidth: Boolean });
-var BMFontLabelProperties = __assign({}, SpriteProperties, { textureMap: Object, text: String, textAlign: Number, wordWrap: Boolean, wordSpace: Number, lineHeight: Number, fontSize: Number, autoResizeHeight: Boolean });
-var ScrollViewProperties = __assign({}, SpriteProperties, { bounce: Boolean, horizentalScroll: Boolean, verticalScroll: Boolean });
-var AutoLayoutViewProperties = __assign({}, ScrollViewProperties, { layout: Number, verticalSpacing: Number, horizentalSpacing: Number });
-var AutoResizeViewProperties = __assign({}, SpriteProperties, { layout: Number, marginLeft: Number, marginRight: Number, marginTop: Number, marginBottom: Number, verticalSpacing: Number, horizentalSpacing: Number, alignChild: Number });
-ComponentManager.registerComponentProperties(canvas2djs.Sprite, SpriteProperties);
-ComponentManager.registerComponentProperties(canvas2djs.TextLabel, TextLabelProperties);
-ComponentManager.registerComponentProperties(canvas2djs.BMFontLabel, BMFontLabelProperties);
-ComponentManager.registerComponentProperties(ScrollView, ScrollViewProperties);
-ComponentManager.registerComponentProperties(AutoLayoutView, AutoLayoutViewProperties);
-ComponentManager.registerComponentProperties(AutoResizeView, AutoResizeViewProperties);
-
 exports.Utility = Utility;
 exports.Request = Request;
 exports.ComponentManager = ComponentManager;
 exports.Component = Component;
 exports.Property = Property;
+exports.BaseComponent = BaseComponent;
 exports.BindingManager = BindingManager;
 exports.Directive = Directive;
 exports.StyleManager = StyleManager;

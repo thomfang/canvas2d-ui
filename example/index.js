@@ -1,3 +1,21 @@
+var __extends = (this && this.__extends) || (function () {
+    var extendStatics = Object.setPrototypeOf ||
+        ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+        function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+    return function (d, b) {
+        extendStatics(d, b);
+        function __() { this.constructor = d; }
+        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+    };
+})();
+var __assign = (this && this.__assign) || Object.assign || function(t) {
+    for (var s, i = 1, n = arguments.length; i < n; i++) {
+        s = arguments[i];
+        for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
+            t[p] = s[p];
+    }
+    return t;
+};
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
@@ -8,6 +26,24 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 /// <reference types="canvas2djs" />
 var Example;
 (function (Example) {
+    var Ball = (function (_super) {
+        __extends(Ball, _super);
+        function Ball(props) {
+            if (props === void 0) { props = {}; }
+            var _this = _super.call(this, __assign({ bgColor: 0xff0, radius: 100 }, props)) || this;
+            new canvas2d.Action(_this).to({
+                opacity: {
+                    dest: 0,
+                    easing: canvas2d.Tween.linear
+                }
+            }, 1).start().setRepeatMode(canvas2d.ActionRepeatMode.REVERSE_REPEAT);
+            return _this;
+        }
+        return Ball;
+    }(canvas2d.Sprite));
+    Ball = __decorate([
+        canvas2dUI.BaseComponent("Ball")
+    ], Ball);
     var LoadingScene = (function () {
         function LoadingScene() {
         }
@@ -86,6 +122,7 @@ var Example;
             this.layout = canvas2dUI.Layout.Horizontal;
             this.margin = 5;
             this.num = 10;
+            this.list = [];
         }
         TestScene.prototype.removeList = function () {
             this.arr.splice(1, 1);
@@ -99,6 +136,7 @@ var Example;
             }
             this.margin += 1;
             this.num *= 10;
+            this.list = this.list.concat([{ id: Date.now() }]);
         };
         return TestScene;
     }());
@@ -120,6 +158,9 @@ var Example;
     __decorate([
         canvas2dUI.Property(Number)
     ], TestScene.prototype, "num", void 0);
+    __decorate([
+        canvas2dUI.Property(Array)
+    ], TestScene.prototype, "list", void 0);
     TestScene = __decorate([
         canvas2dUI.Component("TestScene")
     ], TestScene);
@@ -138,7 +179,7 @@ var Example;
         template: "loading-scene",
         component: "LoadingScene",
         resources: [{
-                url: "loading-scene.html",
+                url: "loading-scene",
                 type: canvas2dUI.ResourceType.HtmlTemplate
             }],
         onLoadStart: function (loadingSceneComponent) {
@@ -154,13 +195,13 @@ var Example;
         "/main/:id": {
             template: "main-scene",
             resources: [{
-                    url: "main-scene.html",
+                    url: "main-scene",
                     type: canvas2dUI.ResourceType.HtmlTemplate
                 }, {
-                    url: "alert-layer.html",
+                    url: "alert-layer",
                     type: canvas2dUI.ResourceType.HtmlTemplate
                 }, {
-                    url: "title.html",
+                    url: "title",
                     type: canvas2dUI.ResourceType.HtmlTemplate,
                 }],
             component: "MainScene"
@@ -168,10 +209,10 @@ var Example;
         "/test": {
             template: "test-scene",
             resources: [{
-                    url: "test-scene.html",
+                    url: "test-scene",
                     type: canvas2dUI.ResourceType.HtmlTemplate
                 }, {
-                    url: "alert-layer.html",
+                    url: "alert-layer",
                     type: canvas2dUI.ResourceType.HtmlTemplate
                 }],
             component: "TestScene"

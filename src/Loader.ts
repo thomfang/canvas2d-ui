@@ -217,13 +217,13 @@ export class Loader {
     }
 
     public static loadHtmlTemplate(url: string, version: string, onComplete: Function) {
-        let requestUrl = url + '?v=' + version;
+        let requestUrl = url + '.html?v=' + version;
         if (loadedResources[requestUrl]) {
             return onComplete(true, loadedResources[requestUrl]);
         }
         Request.get(requestUrl, (html) => {
             loadedResources[requestUrl] = html;
-            TemplateManager.registerHtmlTemplate(Utility.getFilePath(url), html);
+            TemplateManager.registerHtmlTemplate(url, html);
             onComplete(true, html);
         }, () => {
             console.error(`Error in loading Text file "${url}" width version "${version}"`);
@@ -231,13 +231,13 @@ export class Loader {
     }
 
     public static loadJsonTemplate(url: string, version: string, onComplete: Function) {
-        let requestUrl = url + '?v=' + version;
+        let requestUrl = url + '.json?v=' + version;
         if (loadedResources[requestUrl]) {
             return onComplete(true, loadedResources[requestUrl]);
         }
         Request.getJson(requestUrl, (json) => {
             loadedResources[requestUrl] = json;
-            TemplateManager.registerJsonTemplate(Utility.getFilePath(url), json);
+            TemplateManager.registerJsonTemplate(url, json);
             onComplete(true, json);
         }, () => {
             console.error(`Error in loading Text file "${url}" width version "${version}"`);

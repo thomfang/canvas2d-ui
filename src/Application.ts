@@ -25,8 +25,8 @@ export class Application {
     private lastState: RouterState;
     private currRouter: ParsedRouter;
 
-    private currSceneName: string;
-    private currSceneComponent: IComponentWithRouter;
+    private currComponentName: string;
+    private currComponent: IComponentWithRouter;
     private currScene: Sprite<{}> = new Sprite(ContainerProps);
 
     private isLoadingSceneReady: boolean;
@@ -137,10 +137,10 @@ export class Application {
 
     public destroy() {
         this.loadingSceneComponent && ComponentManager.destroyComponent(this.loadingSceneComponent);
-        this.currSceneComponent && ComponentManager.destroyComponent(this.currSceneComponent);
+        this.currComponent && ComponentManager.destroyComponent(this.currComponent);
         this.stage.release();
         this.loadingScene = this.loadingSceneComponent = null;
-        this.currRouter = this.currScene = this.currSceneComponent = null;
+        this.currRouter = this.currScene = this.currComponent = null;
         this.stage = null;
     }
 
@@ -159,15 +159,15 @@ export class Application {
         this.lastState = this.currState;
         this.currState = result.state;
 
-        if (this.currSceneComponent) {
-            if (this.currSceneName === result.router.component) {
-                if (typeof this.currSceneComponent.onEnter === 'function') {
-                    this.currSceneComponent.onEnter(result.state, this.lastState);
+        if (this.currComponent) {
+            if (this.currComponentName === result.router.component) {
+                if (typeof this.currComponent.onEnter === 'function') {
+                    this.currComponent.onEnter(result.state, this.lastState);
                 }
                 return;
             }
-            ComponentManager.destroyComponent(this.currSceneComponent);
-            this.currSceneComponent = null;
+            ComponentManager.destroyComponent(this.currComponent);
+            this.currComponent = null;
             this.currScene.removeAllChildren(true);
         }
 
@@ -213,7 +213,8 @@ export class Application {
             component.onEnter(this.currState, this.lastState);
         }
 
-        this.currSceneComponent = component;
+        this.currComponentName = router.component;
+        this.currComponent = component;
         this.currScene.addChild(view.sprite);
         this.setLoadingState(false);
     }

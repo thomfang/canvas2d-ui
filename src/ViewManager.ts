@@ -29,18 +29,22 @@ export class ViewManager {
                 };
             }
         }
-        if (node.tag === "sprite") {
-            return this.createSprite(node, new Sprite());
+        let ctor = ComponentManager.getBaseComponentCtorByName(node.tag);
+        if (ctor != null) {
+            return this.createSprite(node, new ctor());
         }
-        if (node.tag === 'ScrollView') {
-            return this.createSprite(node, new ScrollView());
-        }
-        if (node.tag === 'AutoLayoutView') {
-            return this.createSprite(node, new AutoLayoutView());
-        }
-        if (node.tag === 'AutoResizeView') {
-            return this.createSprite(node, new AutoResizeView());
-        }
+        // if (node.tag === "sprite") {
+        //     return this.createSprite(node, new Sprite());
+        // }
+        // if (node.tag === 'ScrollView') {
+        //     return this.createSprite(node, new ScrollView());
+        // }
+        // if (node.tag === 'AutoLayoutView') {
+        //     return this.createSprite(node, new AutoLayoutView());
+        // }
+        // if (node.tag === 'AutoResizeView') {
+        //     return this.createSprite(node, new AutoResizeView());
+        // }
         if (node.tag === "text" || node.tag === "bmfont") {
             return this.createTextLabel(node);
         }

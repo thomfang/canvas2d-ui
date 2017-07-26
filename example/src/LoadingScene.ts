@@ -3,6 +3,25 @@
 
 namespace Example {
 
+    @canvas2dUI.BaseComponent("Ball")
+    class Ball extends canvas2d.Sprite<{}>{
+
+        constructor(props = {}) {
+            super({
+                bgColor: 0xff0,
+                radius: 100,
+                ...props,
+            });
+
+            new canvas2d.Action(this).to({
+                opacity: {
+                    dest: 0,
+                    easing: canvas2d.Tween.linear
+                }
+            }, 1).start().setRepeatMode(canvas2d.ActionRepeatMode.REVERSE_REPEAT);
+        }
+    }
+
     @canvas2dUI.Component("LoadingScene")
     class LoadingScene {
 
@@ -85,6 +104,9 @@ namespace Example {
         @canvas2dUI.Property(Number)
         num = 10;
 
+        @canvas2dUI.Property(Array)
+        list = [];
+
         removeList() {
             this.arr.splice(1, 1);
         }
@@ -98,6 +120,7 @@ namespace Example {
             }
             this.margin += 1;
             this.num *= 10
+            this.list = [...this.list, { id: Date.now() }];
         }
     }
 
@@ -117,7 +140,7 @@ namespace Example {
         template: "loading-scene",
         component: "LoadingScene",
         resources: [{
-            url: "loading-scene.html",
+            url: "loading-scene",
             type: canvas2dUI.ResourceType.HtmlTemplate
         }],
         onLoadStart: (loadingSceneComponent: LoadingScene) => {
@@ -136,13 +159,13 @@ namespace Example {
         "/main/:id": {
             template: "main-scene",
             resources: [{
-                url: "main-scene.html",
+                url: "main-scene",
                 type: canvas2dUI.ResourceType.HtmlTemplate
             }, {
-                url: "alert-layer.html",
+                url: "alert-layer",
                 type: canvas2dUI.ResourceType.HtmlTemplate
             }, {
-                url: "title.html",
+                url: "title",
                 type: canvas2dUI.ResourceType.HtmlTemplate,
             }],
             component: "MainScene"
@@ -150,10 +173,10 @@ namespace Example {
         "/test": {
             template: "test-scene",
             resources: [{
-                url: "test-scene.html",
+                url: "test-scene",
                 type: canvas2dUI.ResourceType.HtmlTemplate
             }, {
-                url: "alert-layer.html",
+                url: "alert-layer",
                 type: canvas2dUI.ResourceType.HtmlTemplate
             }],
             component: "TestScene"
