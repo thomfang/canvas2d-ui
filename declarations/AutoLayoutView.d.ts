@@ -6,6 +6,8 @@ export declare type AutoLayoutViewProps = ScrollViewProps & {
     verticalSpacing?: number;
     horizentalSpacing?: number;
     autoResizeHeight?: boolean;
+    horizentalAlign?: HorizentalAlign;
+    verticalAlign?: VerticalAlign;
 };
 export declare enum Layout {
     Vertical = 0,
