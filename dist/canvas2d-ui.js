@@ -1,5 +1,5 @@
 /**
- * canvas2d-ui v1.0.4
+ * canvas2d-ui v1.0.5
  * Copyright (c) 2017-present Todd Fon <tilfon9017@gmail.com>
  * All rights reserved.
  */
