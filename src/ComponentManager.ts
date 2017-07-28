@@ -13,11 +13,21 @@ export class ComponentManager {
     private static registeredComponentCtors: { [name: string]: Function } = {};
     public static registeredBaseComponentCtors: { [name: string]: IBaseComponentCtor } = {};
 
-    public static registerComponent(name: string, ctor: Function) {
+    public static registerComponent(name: string, ctor: Function, extendComponentName?: string) {
         if (this.registeredComponentCtors[name] != null) {
             Utility.warn(`Component "${name}" is override,`, ctor);
         }
         this.registeredComponentCtors[name] = ctor;
+        if (extendComponentName == null) {
+            return;
+        }
+        let properties = this.getRegisteredComponentPropertiesByName(extendComponentName);
+        if (properties == null) {
+            Utility.warn(`Component "${extendComponentName}" has not registered properties.`);
+        }
+        else {
+            this.registerComponentProperties(ctor, properties);
+        }
     }
 
     public static registerBaseComponent(name: string, ctor: IBaseComponentCtor, extendComponentName?: string) {
@@ -151,9 +161,9 @@ export class ComponentManager {
     }
 }
 
-export function Component(name: string) {
+export function Component(name: string, extendComponentName?: string) {
     return (componentCtor: Function) => {
-        ComponentManager.registerComponent(name, componentCtor);
+        ComponentManager.registerComponent(name, componentCtor, extendComponentName);
     };
 }
 

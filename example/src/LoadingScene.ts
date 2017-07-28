@@ -47,8 +47,14 @@ namespace Example {
 
     }
 
-    @canvas2dUI.Component("MainScene")
-    class MainScene implements canvas2dUI.IComponentWithRouter {
+    @canvas2dUI.Component("OtherComponent")
+    class OtherComponent {
+        @canvas2dUI.Property()
+        title = "canvas2dUI";
+    }
+
+    @canvas2dUI.Component("MainScene", "OtherComponent")
+    class MainScene extends OtherComponent implements canvas2dUI.IComponentWithRouter {
 
         onEnter(state: canvas2dUI.RouterState) {
             // console.log(state.params.id);
@@ -57,9 +63,6 @@ namespace Example {
                 canvas2dUI.WeakRef.get("box", this),
             )
         }
-
-        @canvas2dUI.Property()
-        title = "canvas2dUI";
 
         @canvas2dUI.Property(String)
         message: string = "world";
@@ -76,6 +79,7 @@ namespace Example {
         toggle() {
             this.count += 1;
             this.alertVisible = !this.alertVisible;
+            this.title = Date.now() + '';
         }
 
         show(message: string) {

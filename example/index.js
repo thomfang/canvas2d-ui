@@ -75,13 +75,27 @@ var Example;
     AlertLayer = __decorate([
         canvas2dUI.Component("AlertLayer")
     ], AlertLayer);
-    var MainScene = (function () {
-        function MainScene() {
+    var OtherComponent = (function () {
+        function OtherComponent() {
             this.title = "canvas2dUI";
-            this.message = "world";
-            this.count = 0;
-            this.alertMessage = "This is an alert layer.";
-            this.alertVisible = false;
+        }
+        return OtherComponent;
+    }());
+    __decorate([
+        canvas2dUI.Property()
+    ], OtherComponent.prototype, "title", void 0);
+    OtherComponent = __decorate([
+        canvas2dUI.Component("OtherComponent")
+    ], OtherComponent);
+    var MainScene = (function (_super) {
+        __extends(MainScene, _super);
+        function MainScene() {
+            var _this = _super !== null && _super.apply(this, arguments) || this;
+            _this.message = "world";
+            _this.count = 0;
+            _this.alertMessage = "This is an alert layer.";
+            _this.alertVisible = false;
+            return _this;
         }
         MainScene.prototype.onEnter = function (state) {
             // console.log(state.params.id);
@@ -90,15 +104,13 @@ var Example;
         MainScene.prototype.toggle = function () {
             this.count += 1;
             this.alertVisible = !this.alertVisible;
+            this.title = Date.now() + '';
         };
         MainScene.prototype.show = function (message) {
             // alert(message);
         };
         return MainScene;
-    }());
-    __decorate([
-        canvas2dUI.Property()
-    ], MainScene.prototype, "title", void 0);
+    }(OtherComponent));
     __decorate([
         canvas2dUI.Property(String)
     ], MainScene.prototype, "message", void 0);
@@ -112,7 +124,7 @@ var Example;
         canvas2dUI.Property(Boolean)
     ], MainScene.prototype, "alertVisible", void 0);
     MainScene = __decorate([
-        canvas2dUI.Component("MainScene")
+        canvas2dUI.Component("MainScene", "OtherComponent")
     ], MainScene);
     var TestScene = (function () {
         function TestScene() {

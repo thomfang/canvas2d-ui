@@ -1,5 +1,5 @@
 /**
- * canvas2d-ui v1.0.5
+ * canvas2d-ui v1.0.6
  * Copyright (c) 2017-present Todd Fon <tilfon9017@gmail.com>
  * All rights reserved.
  */
@@ -1640,11 +1640,21 @@ function Directive(name, isTerminal, priority) {
 var ComponentManager = (function () {
     function ComponentManager() {
     }
-    ComponentManager.registerComponent = function (name, ctor) {
+    ComponentManager.registerComponent = function (name, ctor, extendComponentName) {
         if (this.registeredComponentCtors[name] != null) {
             Utility.warn("Component \"" + name + "\" is override,", ctor);
         }
         this.registeredComponentCtors[name] = ctor;
+        if (extendComponentName == null) {
+            return;
+        }
+        var properties = this.getRegisteredComponentPropertiesByName(extendComponentName);
+        if (properties == null) {
+            Utility.warn("Component \"" + extendComponentName + "\" has not registered properties.");
+        }
+        else {
+            this.registerComponentProperties(ctor, properties);
+        }
     };
     ComponentManager.registerBaseComponent = function (name, ctor, extendComponentName) {
         if (this.registeredBaseComponentCtors[name] != null) {
@@ -1763,9 +1773,9 @@ var ComponentManager = (function () {
     ComponentManager.registeredBaseComponentCtors = {};
     return ComponentManager;
 }());
-function Component(name) {
+function Component(name, extendComponentName) {
     return function (componentCtor) {
-        ComponentManager.registerComponent(name, componentCtor);
+        ComponentManager.registerComponent(name, componentCtor, extendComponentName);
     };
 }
 function Property(type) {
