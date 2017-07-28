@@ -2763,9 +2763,6 @@ var ScrollView = (function (_super) {
         _super.prototype._onChildResize.call(this);
     };
     ScrollView.prototype.updateView = function () {
-        if (!this.stage) {
-            return;
-        }
         var width = 0;
         var height = 0;
         if (this.scroller.children) {
@@ -2824,7 +2821,7 @@ var AutoLayoutView = (function (_super) {
         _this._layout = _this._layout == null ? exports.Layout.Horizontal : _this._layout;
         _this._horizentalAlign = _this._horizentalAlign == null ? canvas2djs.AlignType.CENTER : _this._horizentalAlign;
         _this._verticalAlign = _this._verticalAlign == null ? canvas2djs.AlignType.CENTER : _this._verticalAlign;
-        _this._autoResizeHeight = _this._autoResizeHeight == null ? false : _this._autoResizeHeight;
+        _this._autoSize = _this._autoSize == null ? false : _this._autoSize;
         _this._verticalSpacing = _this._verticalSpacing || 0;
         _this._horizentalSpacing = _this._horizentalSpacing || 0;
         return _this;
@@ -2868,15 +2865,20 @@ var AutoLayoutView = (function (_super) {
         enumerable: true,
         configurable: true
     });
-    Object.defineProperty(AutoLayoutView.prototype, "autoResizeHeight", {
+    Object.defineProperty(AutoLayoutView.prototype, "autoSize", {
         get: function () {
-            return this._autoResizeHeight;
+            return this._autoSize;
         },
         set: function (value) {
-            if (this._autoResizeHeight !== value) {
-                this._autoResizeHeight = value;
+            if (this._autoSize !== value) {
+                this._autoSize = value;
                 if (value) {
-                    this.height = this.size.height;
+                    if (this._layout === exports.Layout.Horizontal) {
+                        this.height = this.size.height;
+                    }
+                    else if (this._layout === exports.Layout.Vertical) {
+                        this.width = this.size.width;
+                    }
                 }
             }
         },
@@ -2921,8 +2923,13 @@ var AutoLayoutView = (function (_super) {
         var _this = this;
         if (!this.scroller.children || !this.scroller.children.length) {
             this.size = { width: 0, height: 0 };
-            if (this._autoResizeHeight) {
-                this.height = 0;
+            if (this._autoSize) {
+                if (this._layout === exports.Layout.Horizontal) {
+                    this.height = 0;
+                }
+                else if (this._layout === exports.Layout.Vertical) {
+                    this.width = 0;
+                }
             }
             if (this.verticalScroll) {
                 this.touchScrollVertical.stop();
@@ -3014,8 +3021,13 @@ var AutoLayoutView = (function (_super) {
             Utility.warn("Unknow layout", this.layout);
         }
         _super.prototype.updateView.call(this);
-        if (this._autoResizeHeight) {
-            this.height = this.size.height;
+        if (this._autoSize) {
+            if (this._layout === exports.Layout.Horizontal) {
+                this.height = this.size.height;
+            }
+            else if (this._layout === exports.Layout.Vertical) {
+                this.width = this.size.width;
+            }
         }
     };
     AutoLayoutView.prototype.applyHorizentalAlign = function (sprites, totalWidth) {
@@ -3107,7 +3119,7 @@ var AutoLayoutView = (function (_super) {
     ], AutoLayoutView.prototype, "layout", null);
     __decorate([
         Property(Boolean)
-    ], AutoLayoutView.prototype, "autoResizeHeight", null);
+    ], AutoLayoutView.prototype, "autoSize", null);
     __decorate([
         Property(Number)
     ], AutoLayoutView.prototype, "verticalSpacing", null);

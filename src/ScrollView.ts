@@ -91,9 +91,6 @@ export class ScrollView extends Sprite<ScrollViewProps> {
     }
 
     protected updateView() {
-        if (!this.stage) {
-            return;
-        }
         let width = 0;
         let height = 0;
         if (this.scroller.children) {

@@ -1,5 +1,5 @@
 import { ScrollView, ScrollViewProps } from './ScrollView';
-import { Sprite, AlignType } from 'canvas2djs';
+import { Sprite, AlignType, UIEvent } from 'canvas2djs';
 import { BaseComponent, Property } from './ComponentManager';
 import "./InternalViews";
 import { Utility } from './Utility';
@@ -8,7 +8,7 @@ export type AutoLayoutViewProps = ScrollViewProps & {
     layout?: Layout;
     verticalSpacing?: number;
     horizentalSpacing?: number;
-    autoResizeHeight?: boolean;
+    autoSize?: boolean;
     horizentalAlign?: HorizentalAlign;
     verticalAlign?: VerticalAlign;
 }
@@ -28,7 +28,7 @@ export class AutoLayoutView extends ScrollView {
     protected _layout: Layout;
     protected _verticalSpacing: number;
     protected _horizentalSpacing: number;
-    protected _autoResizeHeight: boolean;
+    protected _autoSize: boolean;
     protected _horizentalAlign: HorizentalAlign;
     protected _verticalAlign: VerticalAlign;
 
@@ -39,7 +39,7 @@ export class AutoLayoutView extends ScrollView {
         this._layout = this._layout == null ? Layout.Horizontal : this._layout;
         this._horizentalAlign = this._horizentalAlign == null ? AlignType.CENTER : this._horizentalAlign;
         this._verticalAlign = this._verticalAlign == null ? AlignType.CENTER : this._verticalAlign;
-        this._autoResizeHeight = this._autoResizeHeight == null ? false : this._autoResizeHeight;
+        this._autoSize = this._autoSize == null ? false : this._autoSize;
         this._verticalSpacing = this._verticalSpacing || 0;
         this._horizentalSpacing = this._horizentalSpacing || 0;
     }
@@ -81,15 +81,20 @@ export class AutoLayoutView extends ScrollView {
     }
 
     @Property(Boolean)
-    get autoResizeHeight() {
-        return this._autoResizeHeight;
+    get autoSize() {
+        return this._autoSize;
     }
 
-    set autoResizeHeight(value: boolean) {
-        if (this._autoResizeHeight !== value) {
-            this._autoResizeHeight = value;
+    set autoSize(value: boolean) {
+        if (this._autoSize !== value) {
+            this._autoSize = value;
             if (value) {
-                this.height = this.size.height;
+                if (this._layout === Layout.Horizontal) {
+                    this.height = this.size.height;
+                }
+                else if (this._layout === Layout.Vertical) {
+                    this.width = this.size.width;
+                }
             }
         }
     }
@@ -131,8 +136,13 @@ export class AutoLayoutView extends ScrollView {
     protected updateView() {
         if (!this.scroller.children || !this.scroller.children.length) {
             this.size = { width: 0, height: 0 };
-            if (this._autoResizeHeight) {
-                this.height = 0;
+            if (this._autoSize) {
+                if (this._layout === Layout.Horizontal) {
+                    this.height = 0;
+                }
+                else if (this._layout === Layout.Vertical) {
+                    this.width = 0;
+                }
             }
             if (this.verticalScroll) {
                 this.touchScrollVertical.stop();
@@ -229,8 +239,13 @@ export class AutoLayoutView extends ScrollView {
         }
 
         super.updateView();
-        if (this._autoResizeHeight) {
-            this.height = this.size.height;
+        if (this._autoSize) {
+            if (this._layout === Layout.Horizontal) {
+                this.height = this.size.height;
+            }
+            else if (this._layout === Layout.Vertical) {
+                this.width = this.size.width;
+            }
         }
     }
 

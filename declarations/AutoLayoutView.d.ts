@@ -5,7 +5,7 @@ export declare type AutoLayoutViewProps = ScrollViewProps & {
     layout?: Layout;
     verticalSpacing?: number;
     horizentalSpacing?: number;
-    autoResizeHeight?: boolean;
+    autoSize?: boolean;
     horizentalAlign?: HorizentalAlign;
     verticalAlign?: VerticalAlign;
 };
@@ -20,14 +20,14 @@ export declare class AutoLayoutView extends ScrollView {
     protected _layout: Layout;
     protected _verticalSpacing: number;
     protected _horizentalSpacing: number;
-    protected _autoResizeHeight: boolean;
+    protected _autoSize: boolean;
     protected _horizentalAlign: HorizentalAlign;
     protected _verticalAlign: VerticalAlign;
     constructor(props?: {});
     horizentalAlign: HorizentalAlign;
     verticalAlign: VerticalAlign;
     layout: Layout;
-    autoResizeHeight: boolean;
+    autoSize: boolean;
     verticalSpacing: number;
     horizentalSpacing: number;
     addChild(target: Sprite<{}>, position?: number): void;

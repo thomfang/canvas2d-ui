@@ -5,23 +5,27 @@
             <text alignX="4" alignY="4" autoResizeWidth="true">box-{{i}}</text>
         </sprite>
     </ScrollView>
-     <!-- <AutoLayoutView horizentalScroll="true" layout="0" bgColor="#ccc" verticalSpacing="5" horizentalSpacing="5" verticalAlign="0" width="475" height="405" alignX="4" alignY="4">
+    <AutoLayoutView horizentalScroll="true" layout="0" bgColor="#ccc" verticalSpacing="5" horizentalSpacing="5" verticalAlign="0" width="475" height="405" alignX="4" alignY="4">
         <sprite styles="main-scene-box" :height="$index % 2 == 0 ? 100 : 200" bgColor="#fff" :for="item in 12">
             <text autoResizeWidth="true" alignX="4" alignY="4">a-{{$index}}</text>
         </sprite>
-    </AutoLayoutView>  -->
-     <AutoLayoutView @click="toggleLayout()" layout="0" horizentalScroll="true" bgColor="#ccc" verticalSpacing="5" horizentalSpacing="5" width="415" height="405" alignX="4" alignY="4">
+    </AutoLayoutView>
+    <!-- <AutoLayoutView @click="toggleLayout()" layout="0" horizentalScroll="true" bgColor="#ccc" verticalSpacing="5" horizentalSpacing="5" width="415" height="405" alignX="4" alignY="4">
         <sprite width="200" :height="$index % 2 == 0 ? 100 : 200" bgColor="#fff" :for="item in list">
             <text autoResizeWidth="true" alignX="4" alignY="4">{{item.id}}</text>
         </sprite>
-    </AutoLayoutView> 
+    </AutoLayoutView>   -->
     <!-- <AlertLayer :message="alertMessage" template="alert-layer" @confirm="removeList()" />  -->
-     <AutoResizeView styles="test-scene-container" :marginTop="margin" :layout="layout" @click="toggleLayout()">
+    <AutoResizeView styles="test-scene-container" :marginTop="margin" :layout="layout" @click="toggleLayout()">
         <sprite styles="test-scene-box" :visible="redBoxVisible">
         </sprite>
         <text autoResizeWidth="true">box-123</text>
         <text autoResizeWidth="true">box-123</text>
         <sprite styles="test-scene-box" :if="redBoxVisible">
         </sprite>
-    </AutoResizeView>  
+    </AutoResizeView>
+
+    <AutoLayoutView width="100" layout="1" alignX="4" top="100" autoSize="true" verticalSpacing="10" bgColor="#fff">
+        <sprite width="100" height="100" :for="i in 3" bgColor="#f00" />
+    </AutoLayoutView>
 </sprite>
