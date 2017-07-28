@@ -12,7 +12,6 @@ export declare type AutoResizeViewProps = SpriteProps & {
     horizentalSpacing?: number;
 };
 export declare class AutoResizeView extends Sprite<AutoResizeViewProps> {
-    protected _isPending: boolean;
     protected _layout: Layout;
     protected _alignChild: AlignType;
     protected _marginLeft: number;
@@ -33,5 +32,5 @@ export declare class AutoResizeView extends Sprite<AutoResizeViewProps> {
     addChild(target: Sprite<{}>, position?: number): void;
     removeChild(target: Sprite<{}>): void;
     protected _onChildResize(): void;
-    protected reLayout(): void;
+    protected updateView(): void;
 }

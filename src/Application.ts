@@ -75,11 +75,12 @@ export class Application {
     }
 
     public navigate(url: string, replaceState?: boolean) {
+        let navigateUrl = '#' + url;
         if (replaceState) {
-            location.replace(url);
+            location.replace(navigateUrl);
         }
         else {
-            location.href = url;
+            location.href = navigateUrl;
         }
     }
 
@@ -148,30 +149,44 @@ export class Application {
         var result: { state: RouterState; router: ParsedRouter };
 
         if (!url || !(result = this.parseState(url))) {
-            // return this.navigate('#' + this._rootUrl, true);
             if (this.indexUrl === url) {
                 Utility.error(`Invalid index url "${this.indexUrl}"`);
             }
-            this.navigate('#' + this.indexUrl, true);
-            return;
+            return this.navigate(this.indexUrl, true);
         }
 
+        var { state, router } = result;
+
+        if (this.currRouter && this.currRouter.onLeave) {
+            this.currRouter.onLeave(state);
+        }
+        if (router.onEnter) {
+            router.onEnter(state, () => {
+                this.replaceState(state, router);
+            });
+        }
+        else {
+            this.replaceState(state, router);
+        }
+    }
+
+    private replaceState(state: RouterState, router: ParsedRouter) {
         this.lastState = this.currState;
-        this.currState = result.state;
+        this.currState = state;
 
         if (this.currComponent) {
-            if (this.currComponentName === result.router.component) {
+            if (this.currComponentName === router.component) {
                 if (typeof this.currComponent.onEnter === 'function') {
-                    this.currComponent.onEnter(result.state, this.lastState);
+                    this.currComponent.onEnter(state, this.lastState);
                 }
                 return;
             }
             ComponentManager.destroyComponent(this.currComponent);
             this.currComponent = null;
-            this.currScene.removeAllChildren(true);
+            this.currScene.children && this.currScene.children.forEach(c => c.release(true));
         }
 
-        this.loadComponentResource(result.router);
+        this.loadComponentResource(router);
     }
 
     private loadComponentResource(router: ParsedRouter) {
@@ -266,6 +281,8 @@ export type RouterOptions = {
         component: string;
         resources: Resource[];
         template: string;
+        onEnter?(state: RouterState, next: Function);
+        onLeave?(nextState: RouterState);
     }
 }
 
@@ -296,4 +313,6 @@ export type ParsedRouter = {
     component: string;
     resources: Resource[];
     template: string;
-};
+    onEnter?(state: RouterState, next: Function);
+    onLeave?(nextState: RouterState);
+}

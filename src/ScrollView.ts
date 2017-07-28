@@ -1,6 +1,5 @@
 import { Sprite, SpriteProps, UIEvent, EventHelper } from 'canvas2djs';
 import { TouchScroll } from './TouchScroll';
-import { Utility } from './Utility';
 import { BaseComponent, Property } from './ComponentManager';
 import "./InternalViews";
 
@@ -47,18 +46,16 @@ export class ScrollView extends Sprite<ScrollViewProps> {
         this.scroller = new Sprite({
             originX: 0,
             originY: 0,
-            left: 0,
-            right: 0,
-            top: 0,
-            bottom: 0,
+            percentWidth: 1,
+            percentHeight: 1,
         });
-        this.scroller.addChild = (...args) => {
-            Sprite.prototype.addChild.apply(this.scroller, args);
-            Utility.nextTick(this.measureViewportSize, this);
+        this.scroller.addChild = function (target: Sprite<{}>, position?: number) {
+            Sprite.prototype.addChild.call(this, target, position);
+            this.parent && this.parent.updateView();
         };
-        this.scroller.removeChild = (...args) => {
-            Sprite.prototype.removeChild.apply(this.scroller, args);
-            Utility.nextTick(this.measureViewportSize, this);
+        this.scroller.removeChild = function (target: Sprite<{}>) {
+            Sprite.prototype.removeChild.call(this, target);
+            this.parent && this.parent.updateView();
         };
 
         this.bounce = this.bounce == null ? true : this.bounce;
@@ -72,12 +69,12 @@ export class ScrollView extends Sprite<ScrollViewProps> {
 
     public addChild(child: Sprite<{}>, position?: number) {
         this.scroller.addChild(child, position);
-        Utility.nextTick(this.measureViewportSize, this);
+        this.updateView();
     }
 
     public removeChild(child: Sprite<{}>) {
         this.scroller.removeChild(child);
-        Utility.nextTick(this.measureViewportSize, this);
+        this.updateView();
     }
 
     public removeAllChildren(recusive?: boolean) {
@@ -88,23 +85,12 @@ export class ScrollView extends Sprite<ScrollViewProps> {
         return { ...this.size };
     }
 
-    // protected _resizeWidth() {
-    //     super._resizeWidth();
-    //     Utility.nextTick(this.measureViewportSize, this);
-    // }
-
-    // protected _resizeHeight() {
-    //     super._resizeHeight();
-    //     Utility.nextTick(this.measureViewportSize, this);
-    // }
-
     protected _onChildResize() {
-        // this.measureViewportSize();
-        Utility.nextTick(this.measureViewportSize, this);
+        this.updateView();
         super._onChildResize();
     }
 
-    protected measureViewportSize() {
+    protected updateView() {
         if (!this.stage) {
             return;
         }
@@ -207,7 +193,6 @@ export class ScrollView extends Sprite<ScrollViewProps> {
     public release(recusive?: boolean) {
         this.touchScrollHorizental.stop();
         this.touchScrollVertical.stop();
-        this.scroller.addChild = this.removeChild = null;
         super.removeChild(this.scroller);
         super.release(recusive);
     }

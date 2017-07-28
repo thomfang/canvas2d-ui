@@ -168,7 +168,6 @@ class ForLoopDirective implements IDirective {
     itemDatas: ItemDataDescriptor[];
     itemComponents: IItemComponent[];
     itemComponentCtor: Function;
-    itemSprites: Sprite<{}>[];
     unWatch: Function;
     trackByKey: boolean;
     trackKey: string;
@@ -178,7 +177,6 @@ class ForLoopDirective implements IDirective {
         this.view = view;
         this.component = component;
         this.itemDatas = [];
-        this.itemSprites = [];
         this.originalExp = expression;
         this.parseExpression(expression);
         this.unWatch = WatcherManager.watch(component, this.expression, (newValue, oldValue) => {
@@ -209,13 +207,15 @@ class ForLoopDirective implements IDirective {
         let itemComponent: IItemComponent;
 
         if (this.trackByKey) {
-            let trackValue = value[this.trackKey];
-            for (let i = 0; itemComponent = this.itemComponents[i]; i++) {
-                if (itemComponent[this.keyValueName.value][this.trackKey] === trackValue) {
-                    if (!itemComponent.__idle__) {
-                        Utility.warn(`"${this.trackKey}" is not an unique key in directive ':for="${this.originalExp}"'`);
+            if (this.itemComponents) {
+                let trackValue = value[this.trackKey];
+                for (let i = 0; itemComponent = this.itemComponents[i]; i++) {
+                    if (itemComponent[this.keyValueName.value][this.trackKey] === trackValue) {
+                        if (!itemComponent.__idle__) {
+                            Utility.warn(`"${this.trackKey}" is not an unique key in directive ':for="${this.originalExp}"'`);
+                        }
+                        break;
                     }
-                    break;
                 }
             }
         }
@@ -235,10 +235,10 @@ class ForLoopDirective implements IDirective {
         else {
             itemComponent = this.createItemComponent(item);
             let view = ViewManager.createView(this.view.node);
-            let index = Math.max(0, this.view.sprite.parent.children.indexOf(this.view.sprite));
-            this.view.sprite.parent.addChild(view.sprite, index);
-            // this.itemSprites.push()
-            ComponentManager.mountComponent(itemComponent, view);
+            let parent = this.view.sprite.parent;
+            let index = Math.max(0, parent.children.indexOf(this.view.sprite)) - (this.itemComponents ? this.itemComponents.length : 0) + item.index;
+            parent.addChild(view.sprite, index);
+            BindingManager.createBinding(itemComponent, view);
             WeakRef.set(this.refKey, itemComponent, view.sprite);
         }
 

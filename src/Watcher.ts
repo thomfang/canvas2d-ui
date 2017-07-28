@@ -71,7 +71,8 @@ export class Watcher {
     }
 
     private propertyChanged(): void {
-        Utility.nextTick(this.flush, this);
+        // Utility.nextTick(this.flush, this);
+        this.flush();
     }
 
     private flush() {

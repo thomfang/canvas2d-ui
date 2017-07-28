@@ -37,7 +37,7 @@ export declare class ScrollView extends Sprite<ScrollViewProps> {
         height: number;
     };
     protected _onChildResize(): void;
-    protected measureViewportSize(): void;
+    protected updateView(): void;
     protected onUpdateHorizentalScroll: (scrollX: number) => void;
     protected onUpdateVerticalScroll: (scrollY: number) => void;
     protected onTouchBeginHandler: (helpers: EventHelper[]) => void;

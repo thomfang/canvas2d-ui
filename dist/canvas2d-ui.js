@@ -1,5 +1,5 @@
 /**
- * canvas2d-ui v1.0.3
+ * canvas2d-ui v1.0.4
  * Copyright (c) 2017-present Todd Fon <tilfon9017@gmail.com>
  * All rights reserved.
  */
@@ -1326,7 +1326,8 @@ var Watcher = (function () {
         this.isActived = false;
     };
     Watcher.prototype.propertyChanged = function () {
-        Utility.nextTick(this.flush, this);
+        // Utility.nextTick(this.flush, this);
+        this.flush();
     };
     Watcher.prototype.flush = function () {
         var _this = this;
@@ -2193,11 +2194,12 @@ var Application = (function () {
         this.indexUrl = indexUrl;
     };
     Application.prototype.navigate = function (url, replaceState) {
+        var navigateUrl = '#' + url;
         if (replaceState) {
-            location.replace(url);
+            location.replace(navigateUrl);
         }
         else {
-            location.href = url;
+            location.href = navigateUrl;
         }
     };
     Application.prototype.registerRouter = function (routerOptions) {
@@ -2253,29 +2255,42 @@ var Application = (function () {
         this.stage = null;
     };
     Application.prototype.onUrlChanged = function (url) {
+        var _this = this;
         var result;
         if (!url || !(result = this.parseState(url))) {
-            // return this.navigate('#' + this._rootUrl, true);
             if (this.indexUrl === url) {
                 Utility.error("Invalid index url \"" + this.indexUrl + "\"");
             }
-            this.navigate('#' + this.indexUrl, true);
-            return;
+            return this.navigate(this.indexUrl, true);
         }
+        var state = result.state, router = result.router;
+        if (this.currRouter && this.currRouter.onLeave) {
+            this.currRouter.onLeave(state);
+        }
+        if (router.onEnter) {
+            router.onEnter(state, function () {
+                _this.replaceState(state, router);
+            });
+        }
+        else {
+            this.replaceState(state, router);
+        }
+    };
+    Application.prototype.replaceState = function (state, router) {
         this.lastState = this.currState;
-        this.currState = result.state;
+        this.currState = state;
         if (this.currComponent) {
-            if (this.currComponentName === result.router.component) {
+            if (this.currComponentName === router.component) {
                 if (typeof this.currComponent.onEnter === 'function') {
-                    this.currComponent.onEnter(result.state, this.lastState);
+                    this.currComponent.onEnter(state, this.lastState);
                 }
                 return;
             }
             ComponentManager.destroyComponent(this.currComponent);
             this.currComponent = null;
-            this.currScene.removeAllChildren(true);
+            this.currScene.children && this.currScene.children.forEach(function (c) { return c.release(true); });
         }
-        this.loadComponentResource(result.router);
+        this.loadComponentResource(router);
     };
     Application.prototype.loadComponentResource = function (router) {
         var _this = this;
@@ -2709,26 +2724,16 @@ var ScrollView = (function (_super) {
         _this.scroller = new canvas2djs.Sprite({
             originX: 0,
             originY: 0,
-            left: 0,
-            right: 0,
-            top: 0,
-            bottom: 0,
+            percentWidth: 1,
+            percentHeight: 1,
         });
-        _this.scroller.addChild = function () {
-            var args = [];
-            for (var _i = 0; _i < arguments.length; _i++) {
-                args[_i] = arguments[_i];
-            }
-            canvas2djs.Sprite.prototype.addChild.apply(_this.scroller, args);
-            Utility.nextTick(_this.measureViewportSize, _this);
+        _this.scroller.addChild = function (target, position) {
+            canvas2djs.Sprite.prototype.addChild.call(this, target, position);
+            this.parent && this.parent.updateView();
         };
-        _this.scroller.removeChild = function () {
-            var args = [];
-            for (var _i = 0; _i < arguments.length; _i++) {
-                args[_i] = arguments[_i];
-            }
-            canvas2djs.Sprite.prototype.removeChild.apply(_this.scroller, args);
-            Utility.nextTick(_this.measureViewportSize, _this);
+        _this.scroller.removeChild = function (target) {
+            canvas2djs.Sprite.prototype.removeChild.call(this, target);
+            this.parent && this.parent.updateView();
         };
         _this.bounce = _this.bounce == null ? true : _this.bounce;
         _super.prototype.addChild.call(_this, _this.scroller);
@@ -2741,11 +2746,11 @@ var ScrollView = (function (_super) {
     ScrollView_1 = ScrollView;
     ScrollView.prototype.addChild = function (child, position) {
         this.scroller.addChild(child, position);
-        Utility.nextTick(this.measureViewportSize, this);
+        this.updateView();
     };
     ScrollView.prototype.removeChild = function (child) {
         this.scroller.removeChild(child);
-        Utility.nextTick(this.measureViewportSize, this);
+        this.updateView();
     };
     ScrollView.prototype.removeAllChildren = function (recusive) {
         this.scroller.removeAllChildren(recusive);
@@ -2753,20 +2758,11 @@ var ScrollView = (function (_super) {
     ScrollView.prototype.getScrollerSize = function () {
         return __assign({}, this.size);
     };
-    // protected _resizeWidth() {
-    //     super._resizeWidth();
-    //     Utility.nextTick(this.measureViewportSize, this);
-    // }
-    // protected _resizeHeight() {
-    //     super._resizeHeight();
-    //     Utility.nextTick(this.measureViewportSize, this);
-    // }
     ScrollView.prototype._onChildResize = function () {
-        // this.measureViewportSize();
-        Utility.nextTick(this.measureViewportSize, this);
+        this.updateView();
         _super.prototype._onChildResize.call(this);
     };
-    ScrollView.prototype.measureViewportSize = function () {
+    ScrollView.prototype.updateView = function () {
         if (!this.stage) {
             return;
         }
@@ -2795,7 +2791,6 @@ var ScrollView = (function (_super) {
     ScrollView.prototype.release = function (recusive) {
         this.touchScrollHorizental.stop();
         this.touchScrollVertical.stop();
-        this.scroller.addChild = this.removeChild = null;
         _super.prototype.removeChild.call(this, this.scroller);
         _super.prototype.release.call(this, recusive);
     };
@@ -2832,15 +2827,6 @@ var AutoLayoutView = (function (_super) {
         _this._autoResizeHeight = _this._autoResizeHeight == null ? false : _this._autoResizeHeight;
         _this._verticalSpacing = _this._verticalSpacing || 0;
         _this._horizentalSpacing = _this._horizentalSpacing || 0;
-        _this.scroller.addChild = function (target, position) {
-            target.left = -99999;
-            canvas2djs.Sprite.prototype.addChild.call(_this.scroller, target, position);
-            Utility.nextTick(_this.reLayout, _this);
-        };
-        _this.scroller.removeChild = function (target) {
-            canvas2djs.Sprite.prototype.removeChild.call(_this.scroller, target);
-            Utility.nextTick(_this.reLayout, _this);
-        };
         return _this;
     }
     Object.defineProperty(AutoLayoutView.prototype, "horizentalAlign", {
@@ -2850,7 +2836,7 @@ var AutoLayoutView = (function (_super) {
         set: function (value) {
             if (value !== this._horizentalAlign) {
                 this._horizentalAlign = value;
-                Utility.nextTick(this.reLayout, this);
+                this.updateView();
             }
         },
         enumerable: true,
@@ -2863,7 +2849,7 @@ var AutoLayoutView = (function (_super) {
         set: function (value) {
             if (value !== this._verticalAlign) {
                 this._verticalAlign = value;
-                Utility.nextTick(this.reLayout, this);
+                this.updateView();
             }
         },
         enumerable: true,
@@ -2876,7 +2862,7 @@ var AutoLayoutView = (function (_super) {
         set: function (value) {
             if (value !== this._layout) {
                 this._layout = value;
-                Utility.nextTick(this.reLayout, this);
+                this.updateView();
             }
         },
         enumerable: true,
@@ -2904,7 +2890,7 @@ var AutoLayoutView = (function (_super) {
         set: function (value) {
             if (value !== this._verticalSpacing) {
                 this._verticalSpacing = value;
-                Utility.nextTick(this.reLayout, this);
+                this.updateView();
             }
         },
         enumerable: true,
@@ -2917,34 +2903,22 @@ var AutoLayoutView = (function (_super) {
         set: function (value) {
             if (value !== this._horizentalSpacing) {
                 this._horizentalSpacing = value;
-                Utility.nextTick(this.reLayout, this);
+                this.updateView();
             }
         },
         enumerable: true,
         configurable: true
     });
     AutoLayoutView.prototype.addChild = function (target, position) {
-        target.left = -99999;
         canvas2djs.Sprite.prototype.addChild.call(this.scroller, target, position);
-        Utility.nextTick(this.reLayout, this);
+        this.updateView();
     };
     AutoLayoutView.prototype.removeChild = function (target) {
         canvas2djs.Sprite.prototype.removeChild.call(this.scroller, target);
-        Utility.nextTick(this.reLayout, this);
+        this.updateView();
     };
-    AutoLayoutView.prototype._onChildResize = function () {
-        if (this._isPending) {
-            _super.prototype._onChildResize.call(this);
-        }
-        else {
-            Utility.nextTick(this.reLayout, this);
-        }
-    };
-    AutoLayoutView.prototype.reLayout = function () {
+    AutoLayoutView.prototype.updateView = function () {
         var _this = this;
-        if (this._isPending || !this.stage) {
-            return;
-        }
         if (!this.scroller.children || !this.scroller.children.length) {
             this.size = { width: 0, height: 0 };
             if (this._autoResizeHeight) {
@@ -2958,7 +2932,6 @@ var AutoLayoutView = (function (_super) {
             }
             return;
         }
-        this._isPending = true;
         var children = this.scroller.children;
         var _a = this, width = _a.width, height = _a.height, verticalSpacing = _a.verticalSpacing, horizentalSpacing = _a.horizentalSpacing;
         var maxHeight = 0;
@@ -2971,7 +2944,7 @@ var AutoLayoutView = (function (_super) {
         if (this.layout === exports.Layout.Horizontal) {
             var list_1 = [];
             children.forEach(function (sprite, index) {
-                sprite.left = null;
+                // sprite.left = null;
                 if (sprite.width === 0) {
                     return;
                 }
@@ -3035,16 +3008,15 @@ var AutoLayoutView = (function (_super) {
             });
             this.applayVerticalAlign(list_2, y);
             x += count > 0 ? horizentalSpacing : 0;
-            this.alignChildHorizental(beginIndex, children.length - 1, children, x, maxWidth);
+            this.alignChildVirtical(beginIndex, children.length - 1, children, x, maxWidth);
         }
         else {
             Utility.warn("Unknow layout", this.layout);
         }
-        this.measureViewportSize();
+        _super.prototype.updateView.call(this);
         if (this._autoResizeHeight) {
             this.height = this.size.height;
         }
-        this._isPending = false;
     };
     AutoLayoutView.prototype.applyHorizentalAlign = function (sprites, totalWidth) {
         var horizentalSpacing = this._horizentalSpacing;
@@ -3170,7 +3142,7 @@ var AutoResizeView = (function (_super) {
         set: function (value) {
             if (value !== this._marginLeft) {
                 this._marginLeft = value;
-                Utility.nextTick(this.reLayout, this);
+                this.updateView();
             }
         },
         enumerable: true,
@@ -3183,7 +3155,7 @@ var AutoResizeView = (function (_super) {
         set: function (value) {
             if (value !== this._marginRight) {
                 this._marginRight = value;
-                Utility.nextTick(this.reLayout, this);
+                this.updateView();
             }
         },
         enumerable: true,
@@ -3196,7 +3168,7 @@ var AutoResizeView = (function (_super) {
         set: function (value) {
             if (value !== this._marginBottom) {
                 this._marginBottom = value;
-                Utility.nextTick(this.reLayout, this);
+                this.updateView();
             }
         },
         enumerable: true,
@@ -3209,7 +3181,7 @@ var AutoResizeView = (function (_super) {
         set: function (value) {
             if (value !== this._marginTop) {
                 this._marginTop = value;
-                Utility.nextTick(this.reLayout, this);
+                this.updateView();
             }
         },
         enumerable: true,
@@ -3222,7 +3194,7 @@ var AutoResizeView = (function (_super) {
         set: function (value) {
             if (value !== this._verticalSpacing) {
                 this._verticalSpacing = value;
-                Utility.nextTick(this.reLayout, this);
+                this.updateView();
             }
         },
         enumerable: true,
@@ -3235,7 +3207,7 @@ var AutoResizeView = (function (_super) {
         set: function (value) {
             if (value !== this._horizentalSpacing) {
                 this._horizentalSpacing = value;
-                Utility.nextTick(this.reLayout, this);
+                this.updateView();
             }
         },
         enumerable: true,
@@ -3248,7 +3220,7 @@ var AutoResizeView = (function (_super) {
         set: function (value) {
             if (value !== this._layout) {
                 this._layout = value;
-                Utility.nextTick(this.reLayout, this);
+                this.updateView();
             }
         },
         enumerable: true,
@@ -3261,7 +3233,7 @@ var AutoResizeView = (function (_super) {
         set: function (value) {
             if (value !== this._alignChild) {
                 this._alignChild = value;
-                Utility.nextTick(this.reLayout, this);
+                this.updateView();
             }
         },
         enumerable: true,
@@ -3269,30 +3241,20 @@ var AutoResizeView = (function (_super) {
     });
     AutoResizeView.prototype.addChild = function (target, position) {
         _super.prototype.addChild.call(this, target, position);
-        Utility.nextTick(this.reLayout, this);
-        // this.reLayout();
+        this.updateView();
     };
     AutoResizeView.prototype.removeChild = function (target) {
         _super.prototype.removeChild.call(this, target);
-        Utility.nextTick(this.reLayout, this);
+        this.updateView();
     };
     AutoResizeView.prototype._onChildResize = function () {
-        if (this._isPending) {
-            _super.prototype._onChildResize.call(this);
-        }
-        else {
-            Utility.nextTick(this.reLayout, this);
-        }
+        this.updateView();
+        _super.prototype._onChildResize.call(this);
     };
-    AutoResizeView.prototype.reLayout = function () {
-        if (this._isPending) {
-            return;
-        }
-        this._isPending = true;
+    AutoResizeView.prototype.updateView = function () {
         if (!this.children || !this.children.length) {
             this.width = 0;
             this.height = 0;
-            this._isPending = false;
             return;
         }
         var _a = this, layout = _a.layout, alignChild = _a.alignChild, children = _a.children, marginLeft = _a.marginLeft, marginRight = _a.marginRight, marginBottom = _a.marginBottom, marginTop = _a.marginTop, verticalSpacing = _a.verticalSpacing, horizentalSpacing = _a.horizentalSpacing;
@@ -3387,7 +3349,6 @@ var AutoResizeView = (function (_super) {
                 this.width = 0;
             }
         }
-        this._isPending = false;
     };
     __decorate([
         Property(Number)
@@ -3602,7 +3563,6 @@ var ForLoopDirective = (function () {
         this.view = view;
         this.component = component;
         this.itemDatas = [];
-        this.itemSprites = [];
         this.originalExp = expression;
         this.parseExpression(expression);
         this.unWatch = WatcherManager.watch(component, this.expression, function (newValue, oldValue) {
@@ -3628,13 +3588,15 @@ var ForLoopDirective = (function () {
         var value = item.value;
         var itemComponent;
         if (this.trackByKey) {
-            var trackValue = value[this.trackKey];
-            for (var i = 0; itemComponent = this.itemComponents[i]; i++) {
-                if (itemComponent[this.keyValueName.value][this.trackKey] === trackValue) {
-                    if (!itemComponent.__idle__) {
-                        Utility.warn("\"" + this.trackKey + "\" is not an unique key in directive ':for=\"" + this.originalExp + "\"'");
+            if (this.itemComponents) {
+                var trackValue = value[this.trackKey];
+                for (var i = 0; itemComponent = this.itemComponents[i]; i++) {
+                    if (itemComponent[this.keyValueName.value][this.trackKey] === trackValue) {
+                        if (!itemComponent.__idle__) {
+                            Utility.warn("\"" + this.trackKey + "\" is not an unique key in directive ':for=\"" + this.originalExp + "\"'");
+                        }
+                        break;
                     }
-                    break;
                 }
             }
         }
@@ -3654,10 +3616,10 @@ var ForLoopDirective = (function () {
         else {
             itemComponent = this.createItemComponent(item);
             var view = ViewManager.createView(this.view.node);
-            var index = Math.max(0, this.view.sprite.parent.children.indexOf(this.view.sprite));
-            this.view.sprite.parent.addChild(view.sprite, index);
-            // this.itemSprites.push()
-            ComponentManager.mountComponent(itemComponent, view);
+            var parent = this.view.sprite.parent;
+            var index = Math.max(0, parent.children.indexOf(this.view.sprite)) - (this.itemComponents ? this.itemComponents.length : 0) + item.index;
+            parent.addChild(view.sprite, index);
+            BindingManager.createBinding(itemComponent, view);
             WeakRef.set(this.refKey, itemComponent, view.sprite);
         }
         return itemComponent;

@@ -123,6 +123,7 @@ var Example;
             this.margin = 5;
             this.num = 10;
             this.list = [];
+            this.count = 0;
         }
         TestScene.prototype.removeList = function () {
             this.arr.splice(1, 1);
@@ -136,7 +137,9 @@ var Example;
             }
             this.margin += 1;
             this.num *= 10;
-            this.list = this.list.concat([{ id: Date.now() }]);
+            this.list.unshift({
+                id: this.count++
+            });
         };
         return TestScene;
     }());

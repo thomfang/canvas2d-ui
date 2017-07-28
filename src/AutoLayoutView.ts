@@ -1,8 +1,8 @@
 import { ScrollView, ScrollViewProps } from './ScrollView';
 import { Sprite, AlignType } from 'canvas2djs';
-import { Utility } from './Utility';
 import { BaseComponent, Property } from './ComponentManager';
 import "./InternalViews";
+import { Utility } from './Utility';
 
 export type AutoLayoutViewProps = ScrollViewProps & {
     layout?: Layout;
@@ -25,7 +25,6 @@ export type VerticalAlign = AlignType.TOP | AlignType.CENTER | AlignType.BOTTOM
 export class AutoLayoutView extends ScrollView {
 
     protected _props: AutoLayoutViewProps;
-    protected _isPending: any;
     protected _layout: Layout;
     protected _verticalSpacing: number;
     protected _horizentalSpacing: number;
@@ -43,16 +42,6 @@ export class AutoLayoutView extends ScrollView {
         this._autoResizeHeight = this._autoResizeHeight == null ? false : this._autoResizeHeight;
         this._verticalSpacing = this._verticalSpacing || 0;
         this._horizentalSpacing = this._horizentalSpacing || 0;
-
-        this.scroller.addChild = (target: Sprite<{}>, position?: number) => {
-            target.left = -99999;
-            Sprite.prototype.addChild.call(this.scroller, target, position);
-            Utility.nextTick(this.reLayout, this);
-        };
-        this.scroller.removeChild = (target: Sprite<{}>) => {
-            Sprite.prototype.removeChild.call(this.scroller, target);
-            Utility.nextTick(this.reLayout, this);
-        };
     }
 
     @Property(Number)
@@ -63,7 +52,7 @@ export class AutoLayoutView extends ScrollView {
     set horizentalAlign(value: HorizentalAlign) {
         if (value !== this._horizentalAlign) {
             this._horizentalAlign = value;
-            Utility.nextTick(this.reLayout, this);
+            this.updateView();
         }
     }
 
@@ -75,7 +64,7 @@ export class AutoLayoutView extends ScrollView {
     set verticalAlign(value: VerticalAlign) {
         if (value !== this._verticalAlign) {
             this._verticalAlign = value;
-            Utility.nextTick(this.reLayout, this);
+            this.updateView();
         }
     }
 
@@ -87,7 +76,7 @@ export class AutoLayoutView extends ScrollView {
     set layout(value: Layout) {
         if (value !== this._layout) {
             this._layout = value;
-            Utility.nextTick(this.reLayout, this);
+            this.updateView();
         }
     }
 
@@ -113,7 +102,7 @@ export class AutoLayoutView extends ScrollView {
     set verticalSpacing(value: number) {
         if (value !== this._verticalSpacing) {
             this._verticalSpacing = value;
-            Utility.nextTick(this.reLayout, this);
+            this.updateView();
         }
     }
 
@@ -125,34 +114,21 @@ export class AutoLayoutView extends ScrollView {
     set horizentalSpacing(value: number) {
         if (value !== this._horizentalSpacing) {
             this._horizentalSpacing = value;
-            Utility.nextTick(this.reLayout, this);
+            this.updateView();
         }
     }
 
     public addChild(target: Sprite<{}>, position?: number) {
-        target.left = -99999;
         Sprite.prototype.addChild.call(this.scroller, target, position);
-        Utility.nextTick(this.reLayout, this);
+        this.updateView();
     }
 
     public removeChild(target: Sprite<{}>) {
         Sprite.prototype.removeChild.call(this.scroller, target);
-        Utility.nextTick(this.reLayout, this);
+        this.updateView();
     }
 
-    protected _onChildResize() {
-        if (this._isPending) {
-            super._onChildResize();
-        }
-        else {
-            Utility.nextTick(this.reLayout, this);
-        }
-    }
-
-    protected reLayout() {
-        if (this._isPending || !this.stage) {
-            return;
-        }
+    protected updateView() {
         if (!this.scroller.children || !this.scroller.children.length) {
             this.size = { width: 0, height: 0 };
             if (this._autoResizeHeight) {
@@ -166,7 +142,6 @@ export class AutoLayoutView extends ScrollView {
             }
             return;
         }
-        this._isPending = true;
 
         let children = this.scroller.children;
         let { width, height, verticalSpacing, horizentalSpacing } = this;
@@ -181,7 +156,7 @@ export class AutoLayoutView extends ScrollView {
         if (this.layout === Layout.Horizontal) {
             let list: Sprite<{}>[] = [];
             children.forEach((sprite, index) => {
-                sprite.left = null;
+                // sprite.left = null;
                 if (sprite.width === 0) {
                     return;
                 }
@@ -247,18 +222,16 @@ export class AutoLayoutView extends ScrollView {
 
             this.applayVerticalAlign(list, y);
             x += count > 0 ? horizentalSpacing : 0;
-            this.alignChildHorizental(beginIndex, children.length - 1, children, x, maxWidth);
+            this.alignChildVirtical(beginIndex, children.length - 1, children, x, maxWidth);
         }
         else {
             Utility.warn(`Unknow layout`, this.layout);
         }
 
-        this.measureViewportSize();
+        super.updateView();
         if (this._autoResizeHeight) {
             this.height = this.size.height;
         }
-
-        this._isPending = false;
     }
 
     protected applyHorizentalAlign(sprites: Sprite<{}>[], totalWidth: number) {

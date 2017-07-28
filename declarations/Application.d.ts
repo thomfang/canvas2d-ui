@@ -37,6 +37,7 @@ export declare class Application {
     };
     destroy(): void;
     private onUrlChanged(url);
+    private replaceState(state, router);
     private loadComponentResource(router);
     private createComponent(router);
     private initLoadingScene();
@@ -48,6 +49,8 @@ export declare type RouterOptions = {
         component: string;
         resources: Resource[];
         template: string;
+        onEnter?(state: RouterState, next: Function);
+        onLeave?(nextState: RouterState);
     };
 };
 export declare type RouterState = {
@@ -76,4 +79,6 @@ export declare type ParsedRouter = {
     component: string;
     resources: Resource[];
     template: string;
+    onEnter?(state: RouterState, next: Function);
+    onLeave?(nextState: RouterState);
 };

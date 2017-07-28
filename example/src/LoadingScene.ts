@@ -107,6 +107,8 @@ namespace Example {
         @canvas2dUI.Property(Array)
         list = [];
 
+        count = 0;
+
         removeList() {
             this.arr.splice(1, 1);
         }
@@ -120,7 +122,9 @@ namespace Example {
             }
             this.margin += 1;
             this.num *= 10
-            this.list = [...this.list, { id: Date.now() }];
+            this.list.unshift({
+                id: this.count++
+            });
         }
     }
 

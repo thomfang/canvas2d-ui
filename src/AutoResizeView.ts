@@ -1,6 +1,5 @@
 import { Sprite, SpriteProps, AlignType } from 'canvas2djs';
 import { Layout } from './AutoLayoutView';
-import { Utility } from './Utility';
 import { BaseComponent, Property } from './ComponentManager';
 import "./InternalViews";
 
@@ -17,8 +16,6 @@ export type AutoResizeViewProps = SpriteProps & {
 
 @BaseComponent("AutoResizeView", "sprite")
 export class AutoResizeView extends Sprite<AutoResizeViewProps> {
-
-    protected _isPending: boolean;
 
     protected _layout: Layout;
     protected _alignChild: AlignType;
@@ -51,7 +48,7 @@ export class AutoResizeView extends Sprite<AutoResizeViewProps> {
     set marginLeft(value: number) {
         if (value !== this._marginLeft) {
             this._marginLeft = value;
-            Utility.nextTick(this.reLayout, this);
+            this.updateView();
         }
     }
 
@@ -63,7 +60,7 @@ export class AutoResizeView extends Sprite<AutoResizeViewProps> {
     set marginRight(value: number) {
         if (value !== this._marginRight) {
             this._marginRight = value;
-            Utility.nextTick(this.reLayout, this);
+            this.updateView();
         }
     }
 
@@ -75,7 +72,7 @@ export class AutoResizeView extends Sprite<AutoResizeViewProps> {
     set marginBottom(value: number) {
         if (value !== this._marginBottom) {
             this._marginBottom = value;
-            Utility.nextTick(this.reLayout, this);
+            this.updateView();
         }
     }
 
@@ -87,7 +84,7 @@ export class AutoResizeView extends Sprite<AutoResizeViewProps> {
     set marginTop(value: number) {
         if (value !== this._marginTop) {
             this._marginTop = value;
-            Utility.nextTick(this.reLayout, this);
+            this.updateView();
         }
     }
 
@@ -99,7 +96,7 @@ export class AutoResizeView extends Sprite<AutoResizeViewProps> {
     set verticalSpacing(value: number) {
         if (value !== this._verticalSpacing) {
             this._verticalSpacing = value;
-            Utility.nextTick(this.reLayout, this);
+            this.updateView();
         }
     }
 
@@ -111,7 +108,7 @@ export class AutoResizeView extends Sprite<AutoResizeViewProps> {
     set horizentalSpacing(value: number) {
         if (value !== this._horizentalSpacing) {
             this._horizentalSpacing = value;
-            Utility.nextTick(this.reLayout, this);
+            this.updateView();
         }
     }
 
@@ -123,7 +120,7 @@ export class AutoResizeView extends Sprite<AutoResizeViewProps> {
     set layout(value: Layout) {
         if (value !== this._layout) {
             this._layout = value;
-            Utility.nextTick(this.reLayout, this);
+            this.updateView();
         }
     }
 
@@ -135,41 +132,29 @@ export class AutoResizeView extends Sprite<AutoResizeViewProps> {
     set alignChild(value: AlignType) {
         if (value !== this._alignChild) {
             this._alignChild = value;
-            Utility.nextTick(this.reLayout, this);
+            this.updateView();
         }
     }
 
     public addChild(target: Sprite<{}>, position?: number) {
         super.addChild(target, position);
-        Utility.nextTick(this.reLayout, this);
-        // this.reLayout();
+        this.updateView();
     }
 
     public removeChild(target: Sprite<{}>) {
         super.removeChild(target);
-        Utility.nextTick(this.reLayout, this);
+        this.updateView();
     }
 
     protected _onChildResize() {
-        if (this._isPending) {
-            super._onChildResize();
-        }
-        else {
-            Utility.nextTick(this.reLayout, this);
-        }
+        this.updateView();
+        super._onChildResize();
     }
 
-    protected reLayout() {
-        if (this._isPending) {
-            return;
-        }
-
-        this._isPending = true;
-
+    protected updateView() {
         if (!this.children || !this.children.length) {
             this.width = 0;
             this.height = 0;
-            this._isPending = false;
             return;
         }
 
@@ -268,7 +253,5 @@ export class AutoResizeView extends Sprite<AutoResizeViewProps> {
                 this.width = 0;
             }
         }
-
-        this._isPending = false;
     }
 }
