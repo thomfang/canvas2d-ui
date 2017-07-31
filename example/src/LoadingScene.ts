@@ -130,6 +130,13 @@ namespace Example {
                 id: this.count++
             });
         }
+
+        addBox() {
+            this.list.push({
+                id: Math.random() * 100 | 0
+            });
+            this.list.sort((a, b) => a.id - b.id);
+        }
     }
 
 

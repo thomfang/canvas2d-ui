@@ -200,6 +200,18 @@ class ForLoopDirective implements IDirective {
 
         newItemComponents.forEach(itemVm => itemVm.__idle__ = true);
         this.itemComponents = newItemComponents;
+
+        if (this.itemComponents.length) {
+            let parent = this.view.sprite.parent;
+            let sprites = this.itemComponents.map((component, i) => {
+                let sprite = WeakRef.get(this.refKey, component);
+                parent.removeChild(sprite);
+                return sprite;
+            });
+            sprites.forEach(sprite => {
+                parent.addChild(sprite, parent.children.indexOf(this.view.sprite));
+            });
+        }
     }
 
     getItemComponentByItem(item: ItemDataDescriptor): IItemComponent {

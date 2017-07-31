@@ -153,6 +153,12 @@ var Example;
                 id: this.count++
             });
         };
+        TestScene.prototype.addBox = function () {
+            this.list.push({
+                id: Math.random() * 100 | 0
+            });
+            this.list.sort(function (a, b) { return a.id - b.id; });
+        };
         return TestScene;
     }());
     __decorate([

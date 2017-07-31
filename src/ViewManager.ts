@@ -176,7 +176,7 @@ export class ViewManager {
             if (typeof object.setProps === 'function') {
                 let styleProps: SpriteProps;
                 if (typeof attrValue === 'string') {
-                    attrValue = attrValue.split(/\s+/);
+                    attrValue = attrValue.trim().split(/\s+/);
                 }
                 else if (Object.prototype.toString.call(attrValue) === '[object Object]') {
                     attrValue = Object.keys(attrValue).filter(name => !!attrValue[name]);

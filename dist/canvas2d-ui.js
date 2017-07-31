@@ -1,5 +1,5 @@
 /**
- * canvas2d-ui v1.0.6
+ * canvas2d-ui v1.0.7
  * Copyright (c) 2017-present Todd Fon <tilfon9017@gmail.com>
  * All rights reserved.
  */
@@ -1152,7 +1152,7 @@ var ViewManager = (function () {
             if (typeof object.setProps === 'function') {
                 var styleProps_1;
                 if (typeof attrValue === 'string') {
-                    attrValue = attrValue.split(/\s+/);
+                    attrValue = attrValue.trim().split(/\s+/);
                 }
                 else if (Object.prototype.toString.call(attrValue) === '[object Object]') {
                     attrValue = Object.keys(attrValue).filter(function (name) { return !!attrValue[name]; });
@@ -3605,6 +3605,17 @@ var ForLoopDirective = (function () {
         }
         newItemComponents.forEach(function (itemVm) { return itemVm.__idle__ = true; });
         this.itemComponents = newItemComponents;
+        if (this.itemComponents.length) {
+            var parent_1 = this.view.sprite.parent;
+            var sprites = this.itemComponents.map(function (component, i) {
+                var sprite = WeakRef.get(_this.refKey, component);
+                parent_1.removeChild(sprite);
+                return sprite;
+            });
+            sprites.forEach(function (sprite) {
+                parent_1.addChild(sprite, parent_1.children.indexOf(_this.view.sprite));
+            });
+        }
     };
     ForLoopDirective.prototype.getItemComponentByItem = function (item) {
         var value = item.value;
