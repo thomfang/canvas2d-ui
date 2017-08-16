@@ -65,7 +65,7 @@ export class Request {
             xhr.withCredentials = true;
         }
         if (options.responseType) {
-            xhr.responseType = options.responseType;
+            xhr.responseType = options.responseType as any;
         }
 
         if (typeof options.timeout === 'number' && options.timeout > 0) {
@@ -114,7 +114,7 @@ export type XHROptions = {
     headers?: { [key: string]: string };
     withCredentials?: boolean;
     contentType?: string;
-    responseType?: XMLHttpRequestResponseType;
+    responseType?: string;
     timeout?: number;
     user?: string;
     password?: string;

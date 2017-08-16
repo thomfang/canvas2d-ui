@@ -14,7 +14,7 @@ export declare type XHROptions = {
     };
     withCredentials?: boolean;
     contentType?: string;
-    responseType?: XMLHttpRequestResponseType;
+    responseType?: string;
     timeout?: number;
     user?: string;
     password?: string;
