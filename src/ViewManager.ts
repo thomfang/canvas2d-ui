@@ -3,7 +3,7 @@ import { Utility } from './Utility';
 import { Parser } from './Parser';
 import { ComponentManager, IComponent } from './ComponentManager';
 import { TemplateManager } from './TemplateManager';
-import { StyleManager } from './StyleManager';
+import { StyleManager, ActionStyle } from './StyleManager';
 import { Observable } from './Observable';
 import { BindingManager } from './BindingManager';
 import { ScrollView } from './ScrollView';
@@ -208,7 +208,7 @@ export class ViewManager {
         }
         if (attrName === 'actions') {
             if (typeof attrValue === 'string') {
-                let style: { queue: ActionQueue; startProps?: SpriteProps; repeatMode: ActionRepeatMode } = StyleManager.getStyleByName(attrValue);
+                let style = StyleManager.getStyleByName(attrValue) as ActionStyle;
                 if (style == null) {
                     return Utility.error(`Action "${attrValue}" not found.`);
                 }
@@ -226,7 +226,7 @@ export class ViewManager {
                     if (!attrValue[name]) {
                         return Action.stop(object, name);
                     }
-                    let style: { queue: ActionQueue; startProps?: SpriteProps; repeatMode: ActionRepeatMode } = StyleManager.getStyleByName(name);
+                    let style = StyleManager.getStyleByName(name) as ActionStyle;
                     if (style == null) {
                         return Utility.error(`Action "${name}" not found.`);
                     }

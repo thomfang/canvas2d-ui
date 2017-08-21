@@ -14,6 +14,7 @@ export declare class Application {
     private currState;
     private lastState;
     private currRouter;
+    private navigateByLocationApi;
     private currComponentName;
     private currComponent;
     private currScene;
@@ -24,6 +25,7 @@ export declare class Application {
     private loadingSceneTemplate;
     getStage(): Stage;
     setVersion(version: string): void;
+    setNavigateByLocationApi(navigateByLocationApi: boolean): void;
     getVersion(): string;
     createLoadingScene(options: LoadingSceneOptions): void;
     createStage(stageProps: StageProps): void;

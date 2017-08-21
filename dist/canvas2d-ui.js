@@ -1,5 +1,5 @@
 /**
- * canvas2d-ui v1.0.8
+ * canvas2d-ui v1.0.9
  * Copyright (c) 2017-present Todd Fon <tilfon9017@gmail.com>
  * All rights reserved.
  */
@@ -2174,6 +2174,7 @@ var Application = (function () {
     function Application() {
         this.loadedComponents = [];
         this.routers = [];
+        this.navigateByLocationApi = true;
         this.currScene = new canvas2djs.Sprite(ContainerProps);
         this.loadingScene = new canvas2djs.Sprite(ContainerProps);
     }
@@ -2182,6 +2183,9 @@ var Application = (function () {
     };
     Application.prototype.setVersion = function (version) {
         this.version = version;
+    };
+    Application.prototype.setNavigateByLocationApi = function (navigateByLocationApi) {
+        this.navigateByLocationApi = !!navigateByLocationApi;
     };
     Application.prototype.getVersion = function () {
         return this.version;
@@ -2204,12 +2208,17 @@ var Application = (function () {
         this.indexUrl = indexUrl;
     };
     Application.prototype.navigate = function (url, replaceState) {
-        var navigateUrl = '#' + url;
-        if (replaceState) {
-            location.replace(navigateUrl);
+        if (this.navigateByLocationApi) {
+            var navigateUrl = '#' + url;
+            if (replaceState) {
+                location.replace(navigateUrl);
+            }
+            else {
+                location.href = navigateUrl;
+            }
         }
         else {
-            location.href = navigateUrl;
+            this.onUrlChanged(url);
         }
     };
     Application.prototype.registerRouter = function (routerOptions) {

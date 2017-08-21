@@ -25,6 +25,8 @@ export class Application {
     private lastState: RouterState;
     private currRouter: ParsedRouter;
 
+    private navigateByLocationApi: boolean = true;
+
     private currComponentName: string;
     private currComponent: IComponentWithRouter;
     private currScene: Sprite<{}> = new Sprite(ContainerProps);
@@ -41,6 +43,10 @@ export class Application {
 
     public setVersion(version: string) {
         this.version = version;
+    }
+
+    public setNavigateByLocationApi(navigateByLocationApi: boolean) {
+        this.navigateByLocationApi = !!navigateByLocationApi;
     }
 
     public getVersion() {
@@ -75,12 +81,17 @@ export class Application {
     }
 
     public navigate(url: string, replaceState?: boolean) {
-        let navigateUrl = '#' + url;
-        if (replaceState) {
-            location.replace(navigateUrl);
+        if (this.navigateByLocationApi) {
+            let navigateUrl = '#' + url;
+            if (replaceState) {
+                location.replace(navigateUrl);
+            }
+            else {
+                location.href = navigateUrl;
+            }
         }
         else {
-            location.href = navigateUrl;
+            this.onUrlChanged(url);
         }
     }
 
