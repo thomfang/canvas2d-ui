@@ -1,5 +1,5 @@
 /**
- * canvas2d-ui v1.0.9
+ * canvas2d-ui v1.1.0
  * Copyright (c) 2017-present Todd Fon <tilfon9017@gmail.com>
  * All rights reserved.
  */
@@ -1516,13 +1516,7 @@ var BindingManager = (function () {
             });
         }
         if (view.isComponent) {
-            var context_1 = {};
-            if (view.nestChild) {
-                view.nestChild.forEach(function (v) { return _this.createBinding(component, v, context_1); });
-            }
-            if (view.child) {
-                view.child.forEach(function (v) { return _this.createBinding(view.instance, v, context_1); });
-            }
+            this.createComponentBinding(component, view);
         }
         else if (view.child) {
             view.child.forEach(function (v) { return _this.createBinding(component, v, context); });
@@ -1568,6 +1562,29 @@ var BindingManager = (function () {
         }
         Utility.removeItemFromArray(directive, directives);
         delete this.activedDirectives[uid];
+    };
+    BindingManager.createComponentBinding = function (component, view) {
+        var _this = this;
+        var context = {};
+        if (view.nestChild) {
+            view.nestChild.forEach(function (v) { return _this.createBinding(component, v, context); });
+        }
+        if (view.child) {
+            if (typeof view.instance.onBeforeMount === 'function') {
+                view.instance.onBeforeMount(view);
+            }
+            this.createBinding(view.instance, view.child[0], context);
+            if (typeof view.instance.onAfterMounted === 'function') {
+                view.instance.onAfterMounted();
+            }
+            var directive = {
+                onDestroy: function () {
+                    ComponentManager.destroyComponent(view.instance);
+                },
+            };
+            this.addDirective(component, directive);
+            // view.child.forEach(v => this.createBinding(view.instance, v, context));
+        }
     };
     BindingManager.createAttributeBinding = function (attrName, expression, component, view, twoWayBinding) {
         var value;

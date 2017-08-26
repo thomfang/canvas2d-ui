@@ -1,4 +1,4 @@
-import { IComponent } from './ComponentManager';
+import { IComponent, ComponentManager } from './ComponentManager';
 import { VirtualView, ViewManager } from './ViewManager';
 import { Utility } from './Utility';
 import { Parser } from './Parser';
@@ -57,13 +57,7 @@ export class BindingManager {
             });
         }
         if (view.isComponent) {
-            let context = {};
-            if (view.nestChild) {
-                view.nestChild.forEach(v => this.createBinding(component, v, context));
-            }
-            if (view.child) {
-                view.child.forEach(v => this.createBinding(view.instance, v, context));
-            }
+            this.createComponentBinding(component, view);
         }
         else if (view.child) {
             view.child.forEach(v => this.createBinding(component, v, context));
@@ -114,6 +108,30 @@ export class BindingManager {
         }
         Utility.removeItemFromArray(directive, directives);
         delete this.activedDirectives[uid];
+    }
+
+    public static createComponentBinding(component: IComponent, view: VirtualView) {
+        let context = {};
+        if (view.nestChild) {
+            view.nestChild.forEach(v => this.createBinding(component, v, context));
+        }
+        if (view.child) {
+            if (typeof view.instance.onBeforeMount === 'function') {
+                view.instance.onBeforeMount(view);
+            }
+            this.createBinding(view.instance, view.child[0], context);
+            if (typeof view.instance.onAfterMounted === 'function') {
+                view.instance.onAfterMounted();
+            }
+            let directive: IDirective = {
+                onDestroy: () => {
+                    ComponentManager.destroyComponent(view.instance);
+                },
+            };
+            this.addDirective(component, directive);
+
+            // view.child.forEach(v => this.createBinding(view.instance, v, context));
+        }
     }
 
     public static createAttributeBinding(attrName: string, expression: string, component: IComponent, view, twoWayBinding?: boolean) {
