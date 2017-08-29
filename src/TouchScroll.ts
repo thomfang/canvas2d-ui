@@ -200,6 +200,7 @@ export class TouchScroll {
                 easing: easeOut
             }
         }, duration / 1000).then(() => {
+            this.action = null;
             this.finishScrolling();
         }).start();
     }

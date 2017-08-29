@@ -2,6 +2,7 @@ import { Sprite, SpriteProps, UIEvent, EventHelper } from 'canvas2djs';
 import { TouchScroll } from './TouchScroll';
 import { BaseComponent, Property } from './ComponentManager';
 import "./InternalViews";
+import { Utility } from './Utility';
 
 export type ScrollViewProps = SpriteProps & {
     bounce?: boolean;
@@ -105,13 +106,27 @@ export class ScrollView extends Sprite<ScrollViewProps> {
                 }
             });
         }
-        if (height < this.size.height && this.verticalScroll) {
-            this.onUpdateVerticalScroll(0);
+        if (height - this.height < this.scrollPos.y && this.verticalScroll) {
+            Utility.nextTick(this.fixScrollPosition, this);
         }
-        if (width < this.size.width && this.horizentalScroll) {
-            this.onUpdateHorizentalScroll(0);
+        if (width - this.width < this.scrollPos.x && this.horizentalScroll) {
+            Utility.nextTick(this.fixScrollPosition, this);
         }
-        this.size = { width, height };
+        this.size.width = width;
+        this.size.height = height;
+    }
+
+    protected fixScrollPosition() {
+        if (this.size.height - this.height < this.scrollPos.y && this.verticalScroll) {
+            this.touchScrollVertical.stop();
+            this.onUpdateVerticalScroll(Math.max(0, this.size.height - this.height));
+            // this.touchScrollVertical.finish(this.size.height - this.height, this.size.height - this.height);
+        }
+        if (this.size.width - this.width < this.scrollPos.x && this.horizentalScroll) {
+            this.touchScrollHorizental.stop();
+            this.onUpdateHorizentalScroll(Math.max(0, this.size.width - this.width));
+            // this.touchScrollHorizental.finish(this.size.width - this.width, this.size.width - this.width);
+        }
     }
 
     protected onUpdateHorizentalScroll = (scrollX: number) => {
@@ -171,23 +186,27 @@ export class ScrollView extends Sprite<ScrollViewProps> {
         touchPoint.stopPropagation();
     }
 
-    protected onTouchEndedHandler = (e: EventHelper[]) => {
+    protected onTouchEndedHandler = (helpers: EventHelper[]) => {
         this.stage.removeListener(UIEvent.TOUCH_MOVED, this.onTouchMovedHandler);
         this.stage.removeListener(UIEvent.TOUCH_ENDED, this.onTouchEndedHandler);
-        if (!this.beginPos) {
-            return;
-        }
         if (this.horizentalScroll) {
             this.touchScrollHorizental.finish(this.scrollPos.x, this.size.width - this.width);
         }
         if (this.verticalScroll) {
             this.touchScrollVertical.finish(this.scrollPos.y, this.size.height - this.height);
         }
-        e[0].stopPropagation();
+        if (this.beginPos) {
+            let touchPoint = helpers.filter(e => e.identifier === this.beginPosId)[0];
+            touchPoint && touchPoint.stopPropagation();
+        }
         this.beginPos = this.beginPosId = null;
     }
 
     public release(recusive?: boolean) {
+        if (this.stage) {
+            this.stage.removeListener(UIEvent.TOUCH_MOVED, this.onTouchMovedHandler);
+            this.stage.removeListener(UIEvent.TOUCH_ENDED, this.onTouchEndedHandler);
+        }
         this.touchScrollHorizental.stop();
         this.touchScrollVertical.stop();
         super.removeChild(this.scroller);

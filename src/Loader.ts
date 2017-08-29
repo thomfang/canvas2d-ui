@@ -16,9 +16,19 @@ export enum ResourceType {
     JsonTemplate,
 }
 
-export type Resource = { url: string; type: ResourceType };
+export type Resource = {
+    url: string;
+    type: ResourceType;
+    channel?: number; // for ResourceType.Audio
+};
 
 export class Loader {
+
+    private static audioChannel = 1;
+
+    public static setAudioChannel(channel: number) {
+        this.audioChannel = channel;
+    }
 
     public static clear() {
         loadedResources = {};
@@ -70,7 +80,7 @@ export class Loader {
                     });
                     break;
                 case ResourceType.Audio:
-                    this.loadAudio(res.url, version, (success, audios) => {
+                    this.loadAudio(res.url, version, res.channel == null ? this.audioChannel : res.channel, (success, audios) => {
                         if (success) {
                             result[i] = audios;
                         }
@@ -186,8 +196,12 @@ export class Loader {
         img.src = requestUrl;
     }
 
-    public static loadAudio(url: string, version: string, onComplete: (loaded: boolean, res: (WebAudio | HTMLAudio)[]) => any) {
+    public static loadAudio(url: string, version: string, channel: number, onComplete: (loaded: boolean, res: (WebAudio | HTMLAudio)[]) => any) {
         let requestUrl = url + '?v=' + version;
+        if (loadedResources[requestUrl]) {
+            return onComplete(true, loadedResources[requestUrl]);
+        }
+
         let basePath = getBasePath(url);
         let filePath = url.slice(basePath.length);
         let ext = filePath.match(/\.[^.]+$/)[0];
@@ -199,7 +213,7 @@ export class Loader {
                 loadedResources[requestUrl] = audioes;
             }
             onComplete(loaded, audioes);
-        }, 3);
+        }, channel);
     }
 
     public static loadJson(url: string, version: string, onComplete: Function) {

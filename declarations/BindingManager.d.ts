@@ -14,6 +14,7 @@ export declare class BindingManager {
     static addDirective(component: IComponent, directive: IDirective): void;
     static getComponentDirectives(component: IComponent): IDirective[];
     static removeDirective(component: IComponent, directive: IDirective): void;
+    static createComponentBinding(component: IComponent, view: VirtualView): void;
     static createAttributeBinding(attrName: string, expression: string, component: IComponent, view: any, twoWayBinding?: boolean): void;
     private static createEventBinding(eventName, expression, component, view);
 }

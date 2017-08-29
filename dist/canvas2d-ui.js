@@ -1,5 +1,5 @@
 /**
- * canvas2d-ui v1.1.0
+ * canvas2d-ui v1.1.1
  * Copyright (c) 2017-present Todd Fon <tilfon9017@gmail.com>
  * All rights reserved.
  */
@@ -1968,6 +1968,9 @@ var loadedResources = {};
 var Loader = (function () {
     function Loader() {
     }
+    Loader.setAudioChannel = function (channel) {
+        this.audioChannel = channel;
+    };
     Loader.clear = function () {
         loadedResources = {};
     };
@@ -2011,7 +2014,7 @@ var Loader = (function () {
                     });
                     break;
                 case exports.ResourceType.Audio:
-                    _this.loadAudio(res.url, version, function (success, audios) {
+                    _this.loadAudio(res.url, version, res.channel == null ? _this.audioChannel : res.channel, function (success, audios) {
                         if (success) {
                             result[i] = audios;
                         }
@@ -2119,8 +2122,11 @@ var Loader = (function () {
         };
         img.src = requestUrl;
     };
-    Loader.loadAudio = function (url, version, onComplete) {
+    Loader.loadAudio = function (url, version, channel, onComplete) {
         var requestUrl = url + '?v=' + version;
+        if (loadedResources[requestUrl]) {
+            return onComplete(true, loadedResources[requestUrl]);
+        }
         var basePath = getBasePath(url);
         var filePath = url.slice(basePath.length);
         var ext = filePath.match(/\.[^.]+$/)[0];
@@ -2132,7 +2138,7 @@ var Loader = (function () {
                 loadedResources[requestUrl] = audioes;
             }
             onComplete(loaded, audioes);
-        }, 3);
+        }, channel);
     };
     Loader.loadJson = function (url, version, onComplete) {
         var requestUrl = url + '?v=' + version;
@@ -2175,6 +2181,7 @@ var Loader = (function () {
     Loader.getAltas = function (url) {
         return altasMap[url];
     };
+    Loader.audioChannel = 1;
     return Loader;
 }());
 function getBasePath(url) {
@@ -2586,6 +2593,7 @@ var TouchScroll = (function () {
                 easing: easeOut
             }
         }, duration / 1000).then(function () {
+            _this.action = null;
             _this.finishScrolling();
         }).start();
     };
@@ -2742,19 +2750,19 @@ var ScrollView = (function (_super) {
             }
             touchPoint.stopPropagation();
         };
-        _this.onTouchEndedHandler = function (e) {
+        _this.onTouchEndedHandler = function (helpers) {
             _this.stage.removeListener(canvas2djs.UIEvent.TOUCH_MOVED, _this.onTouchMovedHandler);
             _this.stage.removeListener(canvas2djs.UIEvent.TOUCH_ENDED, _this.onTouchEndedHandler);
-            if (!_this.beginPos) {
-                return;
-            }
             if (_this.horizentalScroll) {
                 _this.touchScrollHorizental.finish(_this.scrollPos.x, _this.size.width - _this.width);
             }
             if (_this.verticalScroll) {
                 _this.touchScrollVertical.finish(_this.scrollPos.y, _this.size.height - _this.height);
             }
-            e[0].stopPropagation();
+            if (_this.beginPos) {
+                var touchPoint = helpers.filter(function (e) { return e.identifier === _this.beginPosId; })[0];
+                touchPoint && touchPoint.stopPropagation();
+            }
             _this.beginPos = _this.beginPosId = null;
         };
         _this.scroller = new canvas2djs.Sprite({
@@ -2813,15 +2821,32 @@ var ScrollView = (function (_super) {
                 }
             });
         }
-        if (height < this.size.height && this.verticalScroll) {
-            this.onUpdateVerticalScroll(0);
+        if (height - this.height < this.scrollPos.y && this.verticalScroll) {
+            Utility.nextTick(this.fixScrollPosition, this);
         }
-        if (width < this.size.width && this.horizentalScroll) {
-            this.onUpdateHorizentalScroll(0);
+        if (width - this.width < this.scrollPos.x && this.horizentalScroll) {
+            Utility.nextTick(this.fixScrollPosition, this);
         }
-        this.size = { width: width, height: height };
+        this.size.width = width;
+        this.size.height = height;
+    };
+    ScrollView.prototype.fixScrollPosition = function () {
+        if (this.size.height - this.height < this.scrollPos.y && this.verticalScroll) {
+            this.touchScrollVertical.stop();
+            this.onUpdateVerticalScroll(Math.max(0, this.size.height - this.height));
+            // this.touchScrollVertical.finish(this.size.height - this.height, this.size.height - this.height);
+        }
+        if (this.size.width - this.width < this.scrollPos.x && this.horizentalScroll) {
+            this.touchScrollHorizental.stop();
+            this.onUpdateHorizentalScroll(Math.max(0, this.size.width - this.width));
+            // this.touchScrollHorizental.finish(this.size.width - this.width, this.size.width - this.width);
+        }
     };
     ScrollView.prototype.release = function (recusive) {
+        if (this.stage) {
+            this.stage.removeListener(canvas2djs.UIEvent.TOUCH_MOVED, this.onTouchMovedHandler);
+            this.stage.removeListener(canvas2djs.UIEvent.TOUCH_ENDED, this.onTouchEndedHandler);
+        }
         this.touchScrollHorizental.stop();
         this.touchScrollVertical.stop();
         _super.prototype.removeChild.call(this, this.scroller);

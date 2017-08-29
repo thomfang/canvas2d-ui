@@ -22,5 +22,3 @@ export * from './WeakRef';
 export * from './TouchScroll';
 import "./InternalDirectives";
 import "./InternalViews";
-
-export as namespace canvas2dUI;
