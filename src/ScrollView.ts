@@ -31,8 +31,8 @@ export class ScrollView extends Sprite<ScrollViewProps> {
     public bounce: boolean;
 
     protected scroller: Sprite<{}>;
-    protected scrollPos: Point = { x: 0, y: 0 };
-    protected size = { width: 0, height: 0 };
+    protected scrollPos: Point;
+    protected size: { width: number, height: number };
     protected touchScrollHorizental: TouchScroll;
     protected touchScrollVertical: TouchScroll;
 
@@ -44,6 +44,8 @@ export class ScrollView extends Sprite<ScrollViewProps> {
             ...props,
             clipOverflow: true,
         });
+        this.size = { width: 0, height: 0 };
+        this.scrollPos = { x: 0, y: 0 };
         this.scroller = new Sprite({
             originX: 0,
             originY: 0,
@@ -117,15 +119,16 @@ export class ScrollView extends Sprite<ScrollViewProps> {
     }
 
     protected fixScrollPosition() {
+        if (!this.size) {
+            return;
+        }
         if (this.size.height - this.height < this.scrollPos.y && this.verticalScroll) {
             this.touchScrollVertical.stop();
             this.onUpdateVerticalScroll(Math.max(0, this.size.height - this.height));
-            // this.touchScrollVertical.finish(this.size.height - this.height, this.size.height - this.height);
         }
         if (this.size.width - this.width < this.scrollPos.x && this.horizentalScroll) {
             this.touchScrollHorizental.stop();
             this.onUpdateHorizentalScroll(Math.max(0, this.size.width - this.width));
-            // this.touchScrollHorizental.finish(this.size.width - this.width, this.size.width - this.width);
         }
     }
 
@@ -161,8 +164,10 @@ export class ScrollView extends Sprite<ScrollViewProps> {
 
         // helper.stopPropagation();
 
-        this.stage.on(UIEvent.TOUCH_MOVED, this.onTouchMovedHandler);
-        this.stage.on(UIEvent.TOUCH_ENDED, this.onTouchEndedHandler);
+        if (this.stage) {
+            this.stage.on(UIEvent.TOUCH_MOVED, this.onTouchMovedHandler);
+            this.stage.on(UIEvent.TOUCH_ENDED, this.onTouchEndedHandler);
+        }
     }
 
     protected onTouchMovedHandler = (helpers: EventHelper[]) => {
@@ -187,8 +192,10 @@ export class ScrollView extends Sprite<ScrollViewProps> {
     }
 
     protected onTouchEndedHandler = (helpers: EventHelper[]) => {
-        this.stage.removeListener(UIEvent.TOUCH_MOVED, this.onTouchMovedHandler);
-        this.stage.removeListener(UIEvent.TOUCH_ENDED, this.onTouchEndedHandler);
+        if (this.stage) {
+            this.stage.removeListener(UIEvent.TOUCH_MOVED, this.onTouchMovedHandler);
+            this.stage.removeListener(UIEvent.TOUCH_ENDED, this.onTouchEndedHandler);
+        }
         if (this.horizentalScroll) {
             this.touchScrollHorizental.finish(this.scrollPos.x, this.size.width - this.width);
         }

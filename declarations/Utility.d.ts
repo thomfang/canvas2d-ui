@@ -24,5 +24,5 @@ export declare class Utility {
     static getFilePath(path: string): string;
     private static nextTickCallbacks;
     private static nextTickHandle;
-    static nextTick(callback: Function, thisObject?: any): void;
+    static nextTick(callback: Function, thisObject?: any): any;
 }

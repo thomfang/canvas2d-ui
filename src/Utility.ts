@@ -206,7 +206,7 @@ export class Utility {
 
     public static nextTick(callback: Function, thisObject?) {
         if (this.nextTickCallbacks.some(c => c.callback === callback && c.thisObject === thisObject)) {
-            return;
+            return null;
         }
         this.nextTickCallbacks.push({
             callback,

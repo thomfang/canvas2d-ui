@@ -126,6 +126,7 @@ export class BindingManager {
             let directive: IDirective = {
                 onDestroy: () => {
                     ComponentManager.destroyComponent(view.instance);
+                    view.child[0].sprite.release(true);
                 },
             };
             this.addDirective(component, directive);

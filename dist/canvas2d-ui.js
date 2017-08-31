@@ -1,5 +1,5 @@
 /**
- * canvas2d-ui v1.1.1
+ * canvas2d-ui v1.1.3
  * Copyright (c) 2017-present Todd Fon <tilfon9017@gmail.com>
  * All rights reserved.
  */
@@ -197,7 +197,7 @@ var Utility = (function () {
     Utility.nextTick = function (callback, thisObject) {
         var _this = this;
         if (this.nextTickCallbacks.some(function (c) { return c.callback === callback && c.thisObject === thisObject; })) {
-            return;
+            return null;
         }
         this.nextTickCallbacks.push({
             callback: callback,
@@ -1580,6 +1580,7 @@ var BindingManager = (function () {
             var directive = {
                 onDestroy: function () {
                     ComponentManager.destroyComponent(view.instance);
+                    view.child[0].sprite.release(true);
                 },
             };
             this.addDirective(component, directive);
@@ -1968,6 +1969,12 @@ var loadedResources = {};
 var Loader = (function () {
     function Loader() {
     }
+    Loader.getRetryTimes = function (res) {
+        return res.retryTimes == null ? this.retryTimes : res.retryTimes;
+    };
+    Loader.setRetryTimes = function (times) {
+        this.retryTimes = times;
+    };
     Loader.setAudioChannel = function (channel) {
         this.audioChannel = channel;
     };
@@ -1978,70 +1985,75 @@ var Loader = (function () {
         var _this = this;
         var loaded = 0;
         var result = [];
+        var logAndReportError = function (type, url, version) {
+            Utility.warn("Resource [" + exports.ResourceType[type] + "]\"" + url + "\"(version=" + version + ") loading failed.");
+            onError && onError(type, url, version);
+        };
         resources.forEach(function (res, i) {
+            var retryTimes = _this.getRetryTimes(res);
             switch (res.type) {
                 case exports.ResourceType.Altas:
-                    _this.loadAltas(res.url, version, function (success, altas) {
+                    _this.loadAltas(res.url, version, retryTimes, function (success, altas) {
                         if (success) {
                             result[i] = altas;
                         }
                         else {
-                            onError(exports.ResourceType.Altas, res.url, version);
+                            logAndReportError(exports.ResourceType.Altas, res.url, version);
                         }
                         checkComplete();
                     }, null, onError);
                     break;
                 case exports.ResourceType.Image:
-                    _this.loadImage(res.url, res.url, version, function (success, img) {
+                    _this.loadImage(res.url, res.url, version, retryTimes, function (success, img) {
                         if (success) {
                             result[i] = img;
                         }
                         else {
-                            onError(exports.ResourceType.Image, res.url, version);
+                            logAndReportError(exports.ResourceType.Image, res.url, version);
                         }
                         checkComplete();
                     });
                     break;
                 case exports.ResourceType.Json:
-                    _this.loadJson(res.url, version, function (success, resp) {
+                    _this.loadJson(res.url, version, retryTimes, function (success, resp) {
                         if (success) {
                             result[i] = resp;
                         }
                         else {
-                            onError(exports.ResourceType.Json, res.url, version);
+                            logAndReportError(exports.ResourceType.Json, res.url, version);
                         }
                         checkComplete();
                     });
                     break;
                 case exports.ResourceType.Audio:
-                    _this.loadAudio(res.url, version, res.channel == null ? _this.audioChannel : res.channel, function (success, audios) {
+                    _this.loadAudio(res.url, version, res.channel == null ? _this.audioChannel : res.channel, retryTimes, function (success, audios) {
                         if (success) {
                             result[i] = audios;
                         }
                         else {
-                            onError(exports.ResourceType.Audio, res.url, version);
+                            logAndReportError(exports.ResourceType.Audio, res.url, version);
                         }
                         checkComplete();
                     });
                     break;
                 case exports.ResourceType.HtmlTemplate:
-                    _this.loadHtmlTemplate(res.url, version, function (success, html) {
+                    _this.loadHtmlTemplate(res.url, version, retryTimes, function (success, html) {
                         if (success) {
                             result[i] = html;
                         }
                         else {
-                            onError(exports.ResourceType.HtmlTemplate, res.url, version);
+                            logAndReportError(exports.ResourceType.HtmlTemplate, res.url, version);
                         }
                         checkComplete();
                     });
                     break;
                 case exports.ResourceType.JsonTemplate:
-                    _this.loadJsonTemplate(res.url, version, function (success, json) {
+                    _this.loadJsonTemplate(res.url, version, retryTimes, function (success, json) {
                         if (success) {
                             result[i] = json;
                         }
                         else {
-                            onError(exports.ResourceType.JsonTemplate, res.url, version);
+                            logAndReportError(exports.ResourceType.JsonTemplate, res.url, version);
                         }
                         checkComplete();
                     });
@@ -2057,14 +2069,17 @@ var Loader = (function () {
             }
         }
     };
-    Loader.loadAltas = function (url, version, onComplete, onProgress, onError) {
+    Loader.loadAltas = function (url, version, retryTimes, onComplete, onProgress, onError) {
         var _this = this;
         var requestUrl = url + '?v=' + version;
         if (loadedResources[requestUrl]) {
             return onComplete(true, loadedResources[requestUrl]);
         }
-        return this.loadJson(url, version, function (success, data) {
+        this.loadJson(url, version, 1, function (success, data) {
             if (!success) {
+                if (retryTimes > 0) {
+                    return _this.loadAltas(url, version, retryTimes - 1, onComplete, onProgress, onError);
+                }
                 if (onError) {
                     onError(exports.ResourceType.Altas, url, version);
                 }
@@ -2077,7 +2092,7 @@ var Loader = (function () {
             var altas = altasMap[url] = {};
             var loaded = 0;
             images.forEach(function (name) {
-                _this.loadImage(name, basePath + name, version, function (success, img) {
+                _this.loadImage(name, basePath + name, version, _this.retryTimes, function (success, img) {
                     if (!success && onError) {
                         onError(exports.ResourceType.Image, basePath + name, version);
                     }
@@ -2104,7 +2119,8 @@ var Loader = (function () {
             }
         });
     };
-    Loader.loadImage = function (name, url, version, onComplete) {
+    Loader.loadImage = function (name, url, version, retryTimes, onComplete) {
+        var _this = this;
         var requestUrl = url + '?v=' + version;
         if (loadedResources[requestUrl]) {
             return onComplete(true, loadedResources[requestUrl]);
@@ -2116,13 +2132,21 @@ var Loader = (function () {
             canvas2djs.Texture.cacheAs(url, texture);
             loadedResources[requestUrl] = img;
             onComplete(true, img);
+            img = null;
         };
         img.onerror = function () {
-            onComplete(false, img);
+            if (retryTimes > 0) {
+                _this.loadImage(name, url, version, retryTimes - 1, onComplete);
+            }
+            else {
+                onComplete(false, img);
+            }
+            img = null;
         };
         img.src = requestUrl;
     };
-    Loader.loadAudio = function (url, version, channel, onComplete) {
+    Loader.loadAudio = function (url, version, channel, retryTimes, onComplete) {
+        var _this = this;
         var requestUrl = url + '?v=' + version;
         if (loadedResources[requestUrl]) {
             return onComplete(true, loadedResources[requestUrl]);
@@ -2136,11 +2160,18 @@ var Loader = (function () {
             var audioes = canvas2djs.Sound.getAllAudioes(name);
             if (loaded) {
                 loadedResources[requestUrl] = audioes;
+                onComplete(loaded, audioes);
             }
-            onComplete(loaded, audioes);
+            else if (retryTimes > 0) {
+                _this.loadAudio(url, version, channel, retryTimes - 1, onComplete);
+            }
+            else {
+                onComplete(loaded, audioes);
+            }
         }, channel);
     };
-    Loader.loadJson = function (url, version, onComplete) {
+    Loader.loadJson = function (url, version, retryTimes, onComplete) {
+        var _this = this;
         var requestUrl = url + '?v=' + version;
         if (loadedResources[requestUrl]) {
             return onComplete(true, loadedResources[requestUrl]);
@@ -2149,10 +2180,16 @@ var Loader = (function () {
             loadedResources[requestUrl] = res;
             onComplete(true, res);
         }, function () {
-            console.error("Error in loading JSON file \"" + url + "\" width version \"" + version + "\"");
+            if (retryTimes > 0) {
+                _this.loadJson(url, version, retryTimes - 1, onComplete);
+            }
+            else {
+                onComplete(false, null);
+            }
         });
     };
-    Loader.loadHtmlTemplate = function (url, version, onComplete) {
+    Loader.loadHtmlTemplate = function (url, version, retryTimes, onComplete) {
+        var _this = this;
         var requestUrl = url + '.html?v=' + version;
         if (loadedResources[requestUrl]) {
             return onComplete(true, loadedResources[requestUrl]);
@@ -2162,10 +2199,16 @@ var Loader = (function () {
             TemplateManager.registerHtmlTemplate(url, html);
             onComplete(true, html);
         }, function () {
-            console.error("Error in loading Text file \"" + url + "\" width version \"" + version + "\"");
+            if (retryTimes > 0) {
+                _this.loadHtmlTemplate(url, version, retryTimes - 1, onComplete);
+            }
+            else {
+                onComplete(false, null);
+            }
         });
     };
-    Loader.loadJsonTemplate = function (url, version, onComplete) {
+    Loader.loadJsonTemplate = function (url, version, retryTimes, onComplete) {
+        var _this = this;
         var requestUrl = url + '.json?v=' + version;
         if (loadedResources[requestUrl]) {
             return onComplete(true, loadedResources[requestUrl]);
@@ -2175,13 +2218,19 @@ var Loader = (function () {
             TemplateManager.registerJsonTemplate(url, json);
             onComplete(true, json);
         }, function () {
-            console.error("Error in loading Text file \"" + url + "\" width version \"" + version + "\"");
+            if (retryTimes > 0) {
+                _this.loadJsonTemplate(url, version, retryTimes - 1, onComplete);
+            }
+            else {
+                onComplete(false, null);
+            }
         });
     };
     Loader.getAltas = function (url) {
         return altasMap[url];
     };
     Loader.audioChannel = 1;
+    Loader.retryTimes = 1;
     return Loader;
 }());
 function getBasePath(url) {
@@ -2702,8 +2751,6 @@ var ScrollView = (function (_super) {
     function ScrollView(props) {
         if (props === void 0) { props = {}; }
         var _this = _super.call(this, __assign({}, props, { clipOverflow: true })) || this;
-        _this.scrollPos = { x: 0, y: 0 };
-        _this.size = { width: 0, height: 0 };
         _this.onUpdateHorizentalScroll = function (scrollX) {
             _this.scroller.x = -scrollX;
             _this.scrollPos.x = scrollX;
@@ -2730,8 +2777,10 @@ var ScrollView = (function (_super) {
                 _this.touchScrollVertical.start(helper.stageY);
             }
             // helper.stopPropagation();
-            _this.stage.on(canvas2djs.UIEvent.TOUCH_MOVED, _this.onTouchMovedHandler);
-            _this.stage.on(canvas2djs.UIEvent.TOUCH_ENDED, _this.onTouchEndedHandler);
+            if (_this.stage) {
+                _this.stage.on(canvas2djs.UIEvent.TOUCH_MOVED, _this.onTouchMovedHandler);
+                _this.stage.on(canvas2djs.UIEvent.TOUCH_ENDED, _this.onTouchEndedHandler);
+            }
         };
         _this.onTouchMovedHandler = function (helpers) {
             if (!_this.beginPos) {
@@ -2751,8 +2800,10 @@ var ScrollView = (function (_super) {
             touchPoint.stopPropagation();
         };
         _this.onTouchEndedHandler = function (helpers) {
-            _this.stage.removeListener(canvas2djs.UIEvent.TOUCH_MOVED, _this.onTouchMovedHandler);
-            _this.stage.removeListener(canvas2djs.UIEvent.TOUCH_ENDED, _this.onTouchEndedHandler);
+            if (_this.stage) {
+                _this.stage.removeListener(canvas2djs.UIEvent.TOUCH_MOVED, _this.onTouchMovedHandler);
+                _this.stage.removeListener(canvas2djs.UIEvent.TOUCH_ENDED, _this.onTouchEndedHandler);
+            }
             if (_this.horizentalScroll) {
                 _this.touchScrollHorizental.finish(_this.scrollPos.x, _this.size.width - _this.width);
             }
@@ -2765,6 +2816,8 @@ var ScrollView = (function (_super) {
             }
             _this.beginPos = _this.beginPosId = null;
         };
+        _this.size = { width: 0, height: 0 };
+        _this.scrollPos = { x: 0, y: 0 };
         _this.scroller = new canvas2djs.Sprite({
             originX: 0,
             originY: 0,
@@ -2831,15 +2884,16 @@ var ScrollView = (function (_super) {
         this.size.height = height;
     };
     ScrollView.prototype.fixScrollPosition = function () {
+        if (!this.size) {
+            return;
+        }
         if (this.size.height - this.height < this.scrollPos.y && this.verticalScroll) {
             this.touchScrollVertical.stop();
             this.onUpdateVerticalScroll(Math.max(0, this.size.height - this.height));
-            // this.touchScrollVertical.finish(this.size.height - this.height, this.size.height - this.height);
         }
         if (this.size.width - this.width < this.scrollPos.x && this.horizentalScroll) {
             this.touchScrollHorizental.stop();
             this.onUpdateHorizentalScroll(Math.max(0, this.size.width - this.width));
-            // this.touchScrollHorizental.finish(this.size.width - this.width, this.size.width - this.width);
         }
     };
     ScrollView.prototype.release = function (recusive) {
@@ -3513,6 +3567,7 @@ var IncludeDirective = (function () {
                 BindingManager.removeDirective(_this.component, directive);
             });
             this.parentSprite.replaceChild(this.currSprite, this.view.sprite);
+            this.currSprite.release(true);
             this.directives = this.currSprite = null;
         }
     };
@@ -3555,6 +3610,7 @@ var ConditionDirective = (function () {
                 BindingManager.removeDirective(_this.component, directive);
             });
             this.parentSprite.replaceChild(this.currSprite, this.view.sprite);
+            this.currSprite.release(true);
             this.currSprite = this.directives = null;
         }
     };
@@ -3597,31 +3653,48 @@ var SlotPlaceholderDirective = (function () {
         }
         var slotViews = context.slotViews[name];
         var placeholder = view.instance;
-        var slotSprites = slotViews.map(function (v) { return v.sprite; });
+        var slotSprites = this.slotSprites = slotViews.map(function (v) { return v.sprite; });
         (_a = placeholder.parent).replaceChild.apply(_a, [placeholder].concat(slotSprites));
         var _a;
+    };
+    SlotPlaceholderDirective.prototype.onDestroy = function () {
+        this.slotSprites && this.slotSprites.forEach(function (sprite) {
+            sprite.parent && sprite.parent.removeChild(sprite);
+        });
     };
     SlotPlaceholderDirective = __decorate([
         Directive(":slot")
     ], SlotPlaceholderDirective);
     return SlotPlaceholderDirective;
 }());
-var ReferenceDirective = (function () {
-    function ReferenceDirective() {
+var ReferenceByKeyDirective = (function () {
+    function ReferenceByKeyDirective() {
     }
-    ReferenceDirective.prototype.onInit = function (refName, component, view, context) {
+    ReferenceByKeyDirective.prototype.onInit = function (refName, component, view, context) {
         this.refName = refName;
         this.component = component;
         WeakRef.set(refName, component, view.instance);
     };
-    ReferenceDirective.prototype.onDestroy = function () {
+    ReferenceByKeyDirective.prototype.onDestroy = function () {
         WeakRef.remove(this.refName, this.component);
         this.refName = this.component = null;
     };
-    ReferenceDirective = __decorate([
+    ReferenceByKeyDirective = __decorate([
         Directive(":ref")
-    ], ReferenceDirective);
-    return ReferenceDirective;
+    ], ReferenceByKeyDirective);
+    return ReferenceByKeyDirective;
+}());
+var ReferenceByCallbackDirective = (function () {
+    function ReferenceByCallbackDirective() {
+    }
+    ReferenceByCallbackDirective.prototype.onInit = function (refExp, component, view, context) {
+        var func = Parser.parseToFunction(refExp);
+        func.call(component, window, null, view.instance);
+    };
+    ReferenceByCallbackDirective = __decorate([
+        Directive("@ref")
+    ], ReferenceByCallbackDirective);
+    return ReferenceByCallbackDirective;
 }());
 /**
  * :for="item in list trackby id"
@@ -3743,9 +3816,7 @@ var ForLoopDirective = (function () {
                 var sprite = WeakRef.get(_this.refKey, itemComponent);
                 itemComponent.$parent = null;
                 ComponentManager.destroyComponent(itemComponent);
-                if (sprite.parent) {
-                    sprite.parent.removeChild(sprite);
-                }
+                sprite.release(true);
                 if (!_this.trackByKey) {
                     var components = WeakRef.get(_this.refKey, value);
                     WeakRef.remove(_this.refKey, itemComponent);

@@ -20,11 +20,21 @@ export type Resource = {
     url: string;
     type: ResourceType;
     channel?: number; // for ResourceType.Audio
+    retryTimes?: number;
 };
 
 export class Loader {
 
     private static audioChannel = 1;
+    private static retryTimes = 1;
+
+    public static getRetryTimes(res: Resource) {
+        return res.retryTimes == null ? this.retryTimes : res.retryTimes;
+    }
+
+    public static setRetryTimes(times: number) {
+        this.retryTimes = times;
+    }
 
     public static setAudioChannel(channel: number) {
         this.audioChannel = channel;
@@ -44,70 +54,76 @@ export class Loader {
         let loaded = 0;
         let result = [];
 
+        let logAndReportError = (type: ResourceType, url: string, version: string) => {
+            Utility.warn(`Resource [${ResourceType[type]}]"${url}"(version=${version}) loading failed.`);
+            onError && onError(type, url, version);
+        }
+
         resources.forEach((res, i) => {
+            let retryTimes = this.getRetryTimes(res);
             switch (res.type) {
                 case ResourceType.Altas:
-                    this.loadAltas(res.url, version, (success, altas) => {
+                    this.loadAltas(res.url, version, retryTimes, (success, altas) => {
                         if (success) {
                             result[i] = altas;
                         }
                         else {
-                            onError(ResourceType.Altas, res.url, version);
+                            logAndReportError(ResourceType.Altas, res.url, version);
                         }
                         checkComplete();
                     }, null, onError);
                     break;
                 case ResourceType.Image:
-                    this.loadImage(res.url, res.url, version, (success, img) => {
+                    this.loadImage(res.url, res.url, version, retryTimes, (success, img) => {
                         if (success) {
                             result[i] = img;
                         }
                         else {
-                            onError(ResourceType.Image, res.url, version);
+                            logAndReportError(ResourceType.Image, res.url, version);
                         }
                         checkComplete();
                     });
                     break;
                 case ResourceType.Json:
-                    this.loadJson(res.url, version, (success, resp) => {
+                    this.loadJson(res.url, version, retryTimes, (success, resp) => {
                         if (success) {
                             result[i] = resp;
                         }
                         else {
-                            onError(ResourceType.Json, res.url, version);
+                            logAndReportError(ResourceType.Json, res.url, version);
                         }
                         checkComplete();
                     });
                     break;
                 case ResourceType.Audio:
-                    this.loadAudio(res.url, version, res.channel == null ? this.audioChannel : res.channel, (success, audios) => {
+                    this.loadAudio(res.url, version, res.channel == null ? this.audioChannel : res.channel, retryTimes, (success, audios) => {
                         if (success) {
                             result[i] = audios;
                         }
                         else {
-                            onError(ResourceType.Audio, res.url, version);
+                            logAndReportError(ResourceType.Audio, res.url, version);
                         }
                         checkComplete();
                     });
                     break;
                 case ResourceType.HtmlTemplate:
-                    this.loadHtmlTemplate(res.url, version, (success, html) => {
+                    this.loadHtmlTemplate(res.url, version, retryTimes, (success, html) => {
                         if (success) {
                             result[i] = html;
                         }
                         else {
-                            onError(ResourceType.HtmlTemplate, res.url, version);
+                            logAndReportError(ResourceType.HtmlTemplate, res.url, version);
                         }
                         checkComplete();
                     });
                     break;
                 case ResourceType.JsonTemplate:
-                    this.loadJsonTemplate(res.url, version, (success, json) => {
+                    this.loadJsonTemplate(res.url, version, retryTimes, (success, json) => {
                         if (success) {
                             result[i] = json;
                         }
                         else {
-                            onError(ResourceType.JsonTemplate, res.url, version);
+                            logAndReportError(ResourceType.JsonTemplate, res.url, version);
                         }
                         checkComplete();
                     });
@@ -125,14 +141,17 @@ export class Loader {
         }
     }
 
-    public static loadAltas(url: string, version: string, onComplete: Function, onProgress?: (percent: number) => any, onError?: Function) {
+    public static loadAltas(url: string, version: string, retryTimes: number, onComplete: Function, onProgress?: (percent: number) => any, onError?: Function) {
         let requestUrl = url + '?v=' + version;
         if (loadedResources[requestUrl]) {
             return onComplete(true, loadedResources[requestUrl]);
         }
 
-        return this.loadJson(url, version, (success: boolean, data: any) => {
+        this.loadJson(url, version, 1, (success: boolean, data: any) => {
             if (!success) {
+                if (retryTimes > 0) {
+                    return this.loadAltas(url, version, retryTimes - 1, onComplete, onProgress, onError);
+                }
                 if (onError) {
                     onError(ResourceType.Altas, url, version);
                 }
@@ -146,7 +165,7 @@ export class Loader {
             let loaded = 0;
 
             images.forEach(name => {
-                this.loadImage(name, basePath + name, version, (success, img) => {
+                this.loadImage(name, basePath + name, version, this.retryTimes, (success, img) => {
                     if (!success && onError) {
                         onError(ResourceType.Image, basePath + name, version);
                     }
@@ -176,7 +195,7 @@ export class Loader {
         });
     }
 
-    public static loadImage(name: string, url: string, version: string, onComplete: (loaded: boolean, img: HTMLImageElement) => any) {
+    public static loadImage(name: string, url: string, version: string, retryTimes: number, onComplete: (loaded: boolean, img: HTMLImageElement) => any) {
         let requestUrl = url + '?v=' + version;
         if (loadedResources[requestUrl]) {
             return onComplete(true, loadedResources[requestUrl]);
@@ -189,14 +208,21 @@ export class Loader {
             Texture.cacheAs(url, texture);
             loadedResources[requestUrl] = img;
             onComplete(true, img);
+            img = null;
         };
         img.onerror = () => {
-            onComplete(false, img);
+            if (retryTimes > 0) {
+                this.loadImage(name, url, version, retryTimes - 1, onComplete);
+            }
+            else {
+                onComplete(false, img);
+            }
+            img = null;
         };
         img.src = requestUrl;
     }
 
-    public static loadAudio(url: string, version: string, channel: number, onComplete: (loaded: boolean, res: (WebAudio | HTMLAudio)[]) => any) {
+    public static loadAudio(url: string, version: string, channel: number, retryTimes: number, onComplete: (loaded: boolean, res: (WebAudio | HTMLAudio)[]) => any) {
         let requestUrl = url + '?v=' + version;
         if (loadedResources[requestUrl]) {
             return onComplete(true, loadedResources[requestUrl]);
@@ -211,12 +237,18 @@ export class Loader {
             let audioes = Sound.getAllAudioes(name);
             if (loaded) {
                 loadedResources[requestUrl] = audioes;
+                onComplete(loaded, audioes);
             }
-            onComplete(loaded, audioes);
+            else if (retryTimes > 0) {
+                this.loadAudio(url, version, channel, retryTimes - 1, onComplete);
+            }
+            else {
+                onComplete(loaded, audioes);
+            }
         }, channel);
     }
 
-    public static loadJson(url: string, version: string, onComplete: Function) {
+    public static loadJson(url: string, version: string, retryTimes: number, onComplete: Function) {
         let requestUrl = url + '?v=' + version;
         if (loadedResources[requestUrl]) {
             return onComplete(true, loadedResources[requestUrl]);
@@ -226,11 +258,16 @@ export class Loader {
             loadedResources[requestUrl] = res;
             onComplete(true, res);
         }, () => {
-            console.error(`Error in loading JSON file "${url}" width version "${version}"`);
+            if (retryTimes > 0) {
+                this.loadJson(url, version, retryTimes - 1, onComplete);
+            }
+            else {
+                onComplete(false, null);
+            }
         });
     }
 
-    public static loadHtmlTemplate(url: string, version: string, onComplete: Function) {
+    public static loadHtmlTemplate(url: string, version: string, retryTimes: number, onComplete: Function) {
         let requestUrl = url + '.html?v=' + version;
         if (loadedResources[requestUrl]) {
             return onComplete(true, loadedResources[requestUrl]);
@@ -240,11 +277,16 @@ export class Loader {
             TemplateManager.registerHtmlTemplate(url, html);
             onComplete(true, html);
         }, () => {
-            console.error(`Error in loading Text file "${url}" width version "${version}"`);
+            if (retryTimes > 0) {
+                this.loadHtmlTemplate(url, version, retryTimes - 1, onComplete);
+            }
+            else {
+                onComplete(false, null);
+            }
         });
     }
 
-    public static loadJsonTemplate(url: string, version: string, onComplete: Function) {
+    public static loadJsonTemplate(url: string, version: string, retryTimes: number, onComplete: Function) {
         let requestUrl = url + '.json?v=' + version;
         if (loadedResources[requestUrl]) {
             return onComplete(true, loadedResources[requestUrl]);
@@ -254,13 +296,19 @@ export class Loader {
             TemplateManager.registerJsonTemplate(url, json);
             onComplete(true, json);
         }, () => {
-            console.error(`Error in loading Text file "${url}" width version "${version}"`);
+            if (retryTimes > 0) {
+                this.loadJsonTemplate(url, version, retryTimes - 1, onComplete);
+            }
+            else {
+                onComplete(false, null);
+            }
         });
     }
 
     public static getAltas(url: string) {
         return altasMap[url];
     }
+
 }
 
 function getBasePath(url: string) {

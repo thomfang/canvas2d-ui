@@ -6,6 +6,7 @@ import { VirtualView, ViewManager } from './ViewManager';
 import { WeakRef } from './WeakRef';
 import { Utility } from './Utility';
 import { TemplateManager } from './TemplateManager';
+import { Parser } from './Parser';
 
 const regParam = /\s+in\s+/;
 const regComma = /\s*,\s*/;
@@ -42,6 +43,7 @@ class IncludeDirective {
                 BindingManager.removeDirective(this.component, directive);
             });
             this.parentSprite.replaceChild(this.currSprite, this.view.sprite);
+            this.currSprite.release(true);
             this.directives = this.currSprite = null;
         }
     }
@@ -89,6 +91,7 @@ class ConditionDirective {
                 BindingManager.removeDirective(this.component, directive);
             });
             this.parentSprite.replaceChild(this.currSprite, this.view.sprite);
+            this.currSprite.release(true);
             this.currSprite = this.directives = null;
         }
     }
@@ -117,7 +120,10 @@ class SlotToDirective implements IDirective {
 @Directive(":slot")
 class SlotPlaceholderDirective implements IDirective {
 
+    slotSprites: Sprite<{}>[];
+
     onInit(name: string, component: IComponent, view: VirtualView, context) {
+
         if (!(view.instance instanceof Sprite)) {
             return Utility.error(`Component could not use the slot="${name}" directive.`, view);
         }
@@ -127,14 +133,20 @@ class SlotPlaceholderDirective implements IDirective {
 
         let slotViews: VirtualView[] = context.slotViews[name];
         let placeholder: Sprite<{}> = view.instance;
-        let slotSprites = slotViews.map(v => v.sprite);
+        let slotSprites = this.slotSprites = slotViews.map(v => v.sprite);
 
         placeholder.parent.replaceChild(placeholder, ...slotSprites);
+    }
+
+    onDestroy() {
+        this.slotSprites && this.slotSprites.forEach(sprite => {
+            sprite.parent && sprite.parent.removeChild(sprite);
+        });
     }
 }
 
 @Directive(":ref")
-class ReferenceDirective implements IDirective {
+class ReferenceByKeyDirective implements IDirective {
 
     refName: string;
     component: IComponent;
@@ -148,6 +160,15 @@ class ReferenceDirective implements IDirective {
     onDestroy() {
         WeakRef.remove(this.refName, this.component);
         this.refName = this.component = null;
+    }
+}
+
+@Directive("@ref")
+class ReferenceByCallbackDirective implements IDirective {
+
+    onInit(refExp: string, component: IComponent, view: VirtualView, context) {
+        let func = Parser.parseToFunction(refExp);
+        func.call(component, window, null, view.instance);
     }
 }
 
@@ -294,13 +315,11 @@ class ForLoopDirective implements IDirective {
         this.itemComponents.forEach(itemComponent => {
             if (itemComponent.__idle__ || forceRemove) {
                 let value = itemComponent[this.keyValueName.value];
-                let sprite = WeakRef.get(this.refKey, itemComponent);
+                let sprite: Sprite<{}> = WeakRef.get(this.refKey, itemComponent);
 
                 itemComponent.$parent = null;
                 ComponentManager.destroyComponent(itemComponent);
-                if (sprite.parent) {
-                    sprite.parent.removeChild(sprite);
-                }
+                sprite.release(true);
 
                 if (!this.trackByKey) {
                     let components = WeakRef.get(this.refKey, value);
