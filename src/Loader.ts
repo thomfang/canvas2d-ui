@@ -3,10 +3,6 @@ import { Request } from './Request';
 import { TemplateManager } from './TemplateManager';
 import { Utility } from './Utility';
 
-var basePathMap: { [key: string]: string } = {};
-var altasMap: { [url: string]: { [name: string]: Texture } } = {};
-var loadedResources: { [id: string]: any } = {};
-
 export enum ResourceType {
     Image,
     Altas,
@@ -28,6 +24,10 @@ export class Loader {
     private static audioChannel = 1;
     private static retryTimes = 1;
 
+    private static basePathMap: { [key: string]: string } = {};
+    private static altasMap: { [url: string]: { [name: string]: Texture } } = {};
+    private static loadedResources: { [id: string]: any } = {};
+
     public static getRetryTimes(res: Resource) {
         return res.retryTimes == null ? this.retryTimes : res.retryTimes;
     }
@@ -41,7 +41,12 @@ export class Loader {
     }
 
     public static clear() {
-        loadedResources = {};
+        this.loadedResources = {};
+    }
+
+    public static getRes(url: string, version?: string) {
+        let key = version ? url + '?v=' + version : url;
+        return this.loadedResources[key];
     }
 
     public static load(
@@ -143,8 +148,8 @@ export class Loader {
 
     public static loadAltas(url: string, version: string, retryTimes: number, onComplete: Function, onProgress?: (percent: number) => any, onError?: Function) {
         let requestUrl = url + '?v=' + version;
-        if (loadedResources[requestUrl]) {
-            return onComplete(true, loadedResources[requestUrl]);
+        if (this.loadedResources[requestUrl]) {
+            return onComplete(true, this.loadedResources[requestUrl]);
         }
 
         this.loadJson(url, version, 1, (success: boolean, data: any) => {
@@ -158,11 +163,25 @@ export class Loader {
                 return onComplete(false);
             }
             let images = data.meta.image.split(",");
-            let basePath = getBasePath(url);
-            let namePrefix = getBasePath(data.meta.prefix);
+            let basePath = this.getBasePath(url);
+            let namePrefix = this.getBasePath(data.meta.prefix);
             let imgs: HTMLImageElement[] = [];
-            let altas: { [name: string]: Texture } = altasMap[url] = {};
+            let altas: { [name: string]: Texture } = this.altasMap[url] = {};
             let loaded = 0;
+
+            let onAllDone = () => {
+                for (let name in data.frames) {
+                    let obj = data.frames[name];
+                    let img = imgs[obj.frame.idx || 0];
+                    let sourceRect = { x: obj.frame.x, y: obj.frame.y, width: obj.frame.w, height: obj.frame.h };
+                    let textureRect = { x: obj.spriteSourceSize.x, y: obj.spriteSourceSize.y, width: obj.sourceSize.w, height: obj.sourceSize.h };
+                    let texture = Texture.create(img, sourceRect, textureRect);
+                    Texture.cacheAs(namePrefix + name, texture);
+                    altas[name] = texture;
+                }
+                this.loadedResources[requestUrl] = this.loadedResources[url] = altas;
+                onComplete(true, altas);
+            };
 
             images.forEach(name => {
                 this.loadImage(name, basePath + name, version, this.retryTimes, (success, img) => {
@@ -178,27 +197,13 @@ export class Loader {
                     }
                 });
             });
-
-            function onAllDone() {
-                for (let name in data.frames) {
-                    let obj = data.frames[name];
-                    let img = imgs[obj.frame.idx || 0];
-                    let sourceRect = { x: obj.frame.x, y: obj.frame.y, width: obj.frame.w, height: obj.frame.h };
-                    let textureRect = { x: obj.spriteSourceSize.x, y: obj.spriteSourceSize.y, width: obj.sourceSize.w, height: obj.sourceSize.h };
-                    let texture = Texture.create(img, sourceRect, textureRect);
-                    Texture.cacheAs(namePrefix + name, texture);
-                    altas[name] = texture;
-                }
-                loadedResources[requestUrl] = altas;
-                onComplete(true, altas);
-            }
         });
     }
 
     public static loadImage(name: string, url: string, version: string, retryTimes: number, onComplete: (loaded: boolean, img: HTMLImageElement) => any) {
         let requestUrl = url + '?v=' + version;
-        if (loadedResources[requestUrl]) {
-            return onComplete(true, loadedResources[requestUrl]);
+        if (this.loadedResources[requestUrl]) {
+            return onComplete(true, this.loadedResources[requestUrl]);
         }
 
         let img = new Image();
@@ -206,7 +211,7 @@ export class Loader {
             let texture = Texture.create(img);
             Texture.cacheAs(name, texture);
             Texture.cacheAs(url, texture);
-            loadedResources[requestUrl] = img;
+            this.loadedResources[requestUrl] = this.loadedResources[url] = img;
             onComplete(true, img);
             img = null;
         };
@@ -219,16 +224,17 @@ export class Loader {
             }
             img = null;
         };
+        img.crossOrigin = 'anonymous';
         img.src = requestUrl;
     }
 
     public static loadAudio(url: string, version: string, channel: number, retryTimes: number, onComplete: (loaded: boolean, res: (WebAudio | HTMLAudio)[]) => any) {
         let requestUrl = url + '?v=' + version;
-        if (loadedResources[requestUrl]) {
-            return onComplete(true, loadedResources[requestUrl]);
+        if (this.loadedResources[requestUrl]) {
+            return onComplete(true, this.loadedResources[requestUrl]);
         }
 
-        let basePath = getBasePath(url);
+        let basePath = this.getBasePath(url);
         let filePath = url.slice(basePath.length);
         let ext = filePath.match(/\.[^.]+$/)[0];
         let name = filePath.slice(0, filePath.length - ext.length);
@@ -236,7 +242,7 @@ export class Loader {
         Sound.load(basePath, name, (loaded) => {
             let audioes = Sound.getAllAudioes(name);
             if (loaded) {
-                loadedResources[requestUrl] = audioes;
+                this.loadedResources[requestUrl] = this.loadedResources[url] = audioes;
                 onComplete(loaded, audioes);
             }
             else if (retryTimes > 0) {
@@ -250,12 +256,12 @@ export class Loader {
 
     public static loadJson(url: string, version: string, retryTimes: number, onComplete: Function) {
         let requestUrl = url + '?v=' + version;
-        if (loadedResources[requestUrl]) {
-            return onComplete(true, loadedResources[requestUrl]);
+        if (this.loadedResources[requestUrl]) {
+            return onComplete(true, this.loadedResources[requestUrl]);
         }
 
         Request.getJson(requestUrl, (res) => {
-            loadedResources[requestUrl] = res;
+            this.loadedResources[requestUrl] = this.loadedResources[url] = res;
             onComplete(true, res);
         }, () => {
             if (retryTimes > 0) {
@@ -269,11 +275,11 @@ export class Loader {
 
     public static loadHtmlTemplate(url: string, version: string, retryTimes: number, onComplete: Function) {
         let requestUrl = url + '.html?v=' + version;
-        if (loadedResources[requestUrl]) {
-            return onComplete(true, loadedResources[requestUrl]);
+        if (this.loadedResources[requestUrl]) {
+            return onComplete(true, this.loadedResources[requestUrl]);
         }
         Request.get(requestUrl, (html) => {
-            loadedResources[requestUrl] = html;
+            this.loadedResources[requestUrl] = this.loadedResources[url] = html;
             TemplateManager.registerHtmlTemplate(url, html);
             onComplete(true, html);
         }, () => {
@@ -288,11 +294,11 @@ export class Loader {
 
     public static loadJsonTemplate(url: string, version: string, retryTimes: number, onComplete: Function) {
         let requestUrl = url + '.json?v=' + version;
-        if (loadedResources[requestUrl]) {
-            return onComplete(true, loadedResources[requestUrl]);
+        if (this.loadedResources[requestUrl]) {
+            return onComplete(true, this.loadedResources[requestUrl]);
         }
         Request.getJson(requestUrl, (json) => {
-            loadedResources[requestUrl] = json;
+            this.loadedResources[requestUrl] = this.loadedResources[url] = json;
             TemplateManager.registerJsonTemplate(url, json);
             onComplete(true, json);
         }, () => {
@@ -306,16 +312,15 @@ export class Loader {
     }
 
     public static getAltas(url: string) {
-        return altasMap[url];
+        return this.altasMap[url];
     }
 
-}
-
-function getBasePath(url: string) {
-    if (!basePathMap[url]) {
-        let split = url.indexOf("/") >= 0 ? "/" : "\\";
-        let idx = url.lastIndexOf(split);
-        basePathMap[url] = idx >= 0 ? url.substr(0, idx + 1) : "";
+    private static getBasePath(url: string) {
+        if (!this.basePathMap[url]) {
+            let split = url.indexOf("/") >= 0 ? "/" : "\\";
+            let idx = url.lastIndexOf(split);
+            this.basePathMap[url] = idx >= 0 ? url.substr(0, idx + 1) : "";
+        }
+        return this.basePathMap[url];
     }
-    return basePathMap[url];
 }

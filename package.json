@@ -1,6 +1,6 @@
 {
   "name": "canvas2d-ui",
-  "version": "1.1.3",
+  "version": "1.1.4",
   "description": "Application framework for canvas2djs",
   "main": "./dist/canvas2d-ui.js",
   "types": "./declarations/index.d.ts",

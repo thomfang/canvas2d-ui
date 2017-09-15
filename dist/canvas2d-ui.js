@@ -1,5 +1,5 @@
 /**
- * canvas2d-ui v1.1.3
+ * canvas2d-ui v1.1.4
  * Copyright (c) 2017-present Todd Fon <tilfon9017@gmail.com>
  * All rights reserved.
  */
@@ -1580,7 +1580,7 @@ var BindingManager = (function () {
             var directive = {
                 onDestroy: function () {
                     ComponentManager.destroyComponent(view.instance);
-                    view.child[0].sprite.release(true);
+                    // view.child[0].sprite.release(true);
                 },
             };
             this.addDirective(component, directive);
@@ -1954,10 +1954,6 @@ function pathToRegexp(path, keys, options) {
     return attachKeys(new RegExp('^' + path + (end ? '$' : ''), flags), keys);
 }
 
-var basePathMap = {};
-var altasMap = {};
-var loadedResources = {};
-
 (function (ResourceType) {
     ResourceType[ResourceType["Image"] = 0] = "Image";
     ResourceType[ResourceType["Altas"] = 1] = "Altas";
@@ -1979,7 +1975,11 @@ var Loader = (function () {
         this.audioChannel = channel;
     };
     Loader.clear = function () {
-        loadedResources = {};
+        this.loadedResources = {};
+    };
+    Loader.getRes = function (url, version) {
+        var key = version ? url + '?v=' + version : url;
+        return this.loadedResources[key];
     };
     Loader.load = function (resources, version, onCompleted, onProgress, onError) {
         var _this = this;
@@ -2072,8 +2072,8 @@ var Loader = (function () {
     Loader.loadAltas = function (url, version, retryTimes, onComplete, onProgress, onError) {
         var _this = this;
         var requestUrl = url + '?v=' + version;
-        if (loadedResources[requestUrl]) {
-            return onComplete(true, loadedResources[requestUrl]);
+        if (this.loadedResources[requestUrl]) {
+            return onComplete(true, this.loadedResources[requestUrl]);
         }
         this.loadJson(url, version, 1, function (success, data) {
             if (!success) {
@@ -2086,11 +2086,24 @@ var Loader = (function () {
                 return onComplete(false);
             }
             var images = data.meta.image.split(",");
-            var basePath = getBasePath(url);
-            var namePrefix = getBasePath(data.meta.prefix);
+            var basePath = _this.getBasePath(url);
+            var namePrefix = _this.getBasePath(data.meta.prefix);
             var imgs = [];
-            var altas = altasMap[url] = {};
+            var altas = _this.altasMap[url] = {};
             var loaded = 0;
+            var onAllDone = function () {
+                for (var name in data.frames) {
+                    var obj = data.frames[name];
+                    var img = imgs[obj.frame.idx || 0];
+                    var sourceRect = { x: obj.frame.x, y: obj.frame.y, width: obj.frame.w, height: obj.frame.h };
+                    var textureRect = { x: obj.spriteSourceSize.x, y: obj.spriteSourceSize.y, width: obj.sourceSize.w, height: obj.sourceSize.h };
+                    var texture = canvas2djs.Texture.create(img, sourceRect, textureRect);
+                    canvas2djs.Texture.cacheAs(namePrefix + name, texture);
+                    altas[name] = texture;
+                }
+                _this.loadedResources[requestUrl] = _this.loadedResources[url] = altas;
+                onComplete(true, altas);
+            };
             images.forEach(function (name) {
                 _this.loadImage(name, basePath + name, version, _this.retryTimes, function (success, img) {
                     if (!success && onError) {
@@ -2104,33 +2117,20 @@ var Loader = (function () {
                     }
                 });
             });
-            function onAllDone() {
-                for (var name in data.frames) {
-                    var obj = data.frames[name];
-                    var img = imgs[obj.frame.idx || 0];
-                    var sourceRect = { x: obj.frame.x, y: obj.frame.y, width: obj.frame.w, height: obj.frame.h };
-                    var textureRect = { x: obj.spriteSourceSize.x, y: obj.spriteSourceSize.y, width: obj.sourceSize.w, height: obj.sourceSize.h };
-                    var texture = canvas2djs.Texture.create(img, sourceRect, textureRect);
-                    canvas2djs.Texture.cacheAs(namePrefix + name, texture);
-                    altas[name] = texture;
-                }
-                loadedResources[requestUrl] = altas;
-                onComplete(true, altas);
-            }
         });
     };
     Loader.loadImage = function (name, url, version, retryTimes, onComplete) {
         var _this = this;
         var requestUrl = url + '?v=' + version;
-        if (loadedResources[requestUrl]) {
-            return onComplete(true, loadedResources[requestUrl]);
+        if (this.loadedResources[requestUrl]) {
+            return onComplete(true, this.loadedResources[requestUrl]);
         }
         var img = new Image();
         img.onload = function () {
             var texture = canvas2djs.Texture.create(img);
             canvas2djs.Texture.cacheAs(name, texture);
             canvas2djs.Texture.cacheAs(url, texture);
-            loadedResources[requestUrl] = img;
+            _this.loadedResources[requestUrl] = _this.loadedResources[url] = img;
             onComplete(true, img);
             img = null;
         };
@@ -2143,15 +2143,16 @@ var Loader = (function () {
             }
             img = null;
         };
+        img.crossOrigin = 'anonymous';
         img.src = requestUrl;
     };
     Loader.loadAudio = function (url, version, channel, retryTimes, onComplete) {
         var _this = this;
         var requestUrl = url + '?v=' + version;
-        if (loadedResources[requestUrl]) {
-            return onComplete(true, loadedResources[requestUrl]);
+        if (this.loadedResources[requestUrl]) {
+            return onComplete(true, this.loadedResources[requestUrl]);
         }
-        var basePath = getBasePath(url);
+        var basePath = this.getBasePath(url);
         var filePath = url.slice(basePath.length);
         var ext = filePath.match(/\.[^.]+$/)[0];
         var name = filePath.slice(0, filePath.length - ext.length);
@@ -2159,7 +2160,7 @@ var Loader = (function () {
         canvas2djs.Sound.load(basePath, name, function (loaded) {
             var audioes = canvas2djs.Sound.getAllAudioes(name);
             if (loaded) {
-                loadedResources[requestUrl] = audioes;
+                _this.loadedResources[requestUrl] = _this.loadedResources[url] = audioes;
                 onComplete(loaded, audioes);
             }
             else if (retryTimes > 0) {
@@ -2173,11 +2174,11 @@ var Loader = (function () {
     Loader.loadJson = function (url, version, retryTimes, onComplete) {
         var _this = this;
         var requestUrl = url + '?v=' + version;
-        if (loadedResources[requestUrl]) {
-            return onComplete(true, loadedResources[requestUrl]);
+        if (this.loadedResources[requestUrl]) {
+            return onComplete(true, this.loadedResources[requestUrl]);
         }
         Request.getJson(requestUrl, function (res) {
-            loadedResources[requestUrl] = res;
+            _this.loadedResources[requestUrl] = _this.loadedResources[url] = res;
             onComplete(true, res);
         }, function () {
             if (retryTimes > 0) {
@@ -2191,11 +2192,11 @@ var Loader = (function () {
     Loader.loadHtmlTemplate = function (url, version, retryTimes, onComplete) {
         var _this = this;
         var requestUrl = url + '.html?v=' + version;
-        if (loadedResources[requestUrl]) {
-            return onComplete(true, loadedResources[requestUrl]);
+        if (this.loadedResources[requestUrl]) {
+            return onComplete(true, this.loadedResources[requestUrl]);
         }
         Request.get(requestUrl, function (html) {
-            loadedResources[requestUrl] = html;
+            _this.loadedResources[requestUrl] = _this.loadedResources[url] = html;
             TemplateManager.registerHtmlTemplate(url, html);
             onComplete(true, html);
         }, function () {
@@ -2210,11 +2211,11 @@ var Loader = (function () {
     Loader.loadJsonTemplate = function (url, version, retryTimes, onComplete) {
         var _this = this;
         var requestUrl = url + '.json?v=' + version;
-        if (loadedResources[requestUrl]) {
-            return onComplete(true, loadedResources[requestUrl]);
+        if (this.loadedResources[requestUrl]) {
+            return onComplete(true, this.loadedResources[requestUrl]);
         }
         Request.getJson(requestUrl, function (json) {
-            loadedResources[requestUrl] = json;
+            _this.loadedResources[requestUrl] = _this.loadedResources[url] = json;
             TemplateManager.registerJsonTemplate(url, json);
             onComplete(true, json);
         }, function () {
@@ -2227,20 +2228,23 @@ var Loader = (function () {
         });
     };
     Loader.getAltas = function (url) {
-        return altasMap[url];
+        return this.altasMap[url];
+    };
+    Loader.getBasePath = function (url) {
+        if (!this.basePathMap[url]) {
+            var split = url.indexOf("/") >= 0 ? "/" : "\\";
+            var idx = url.lastIndexOf(split);
+            this.basePathMap[url] = idx >= 0 ? url.substr(0, idx + 1) : "";
+        }
+        return this.basePathMap[url];
     };
     Loader.audioChannel = 1;
     Loader.retryTimes = 1;
+    Loader.basePathMap = {};
+    Loader.altasMap = {};
+    Loader.loadedResources = {};
     return Loader;
 }());
-function getBasePath(url) {
-    if (!basePathMap[url]) {
-        var split = url.indexOf("/") >= 0 ? "/" : "\\";
-        var idx = url.lastIndexOf(split);
-        basePathMap[url] = idx >= 0 ? url.substr(0, idx + 1) : "";
-    }
-    return basePathMap[url];
-}
 
 var ContainerProps = { left: 0, right: 0, top: 0, bottom: 0 };
 var Application = (function () {

@@ -16,10 +16,14 @@ export declare type Resource = {
 export declare class Loader {
     private static audioChannel;
     private static retryTimes;
+    private static basePathMap;
+    private static altasMap;
+    private static loadedResources;
     static getRetryTimes(res: Resource): number;
     static setRetryTimes(times: number): void;
     static setAudioChannel(channel: number): void;
     static clear(): void;
+    static getRes(url: string, version?: string): any;
     static load(resources: Resource[], version: string, onCompleted: Function, onProgress?: (percent: number) => any, onError?: (type: ResourceType, url: string, version: string) => any): void;
     static loadAltas(url: string, version: string, retryTimes: number, onComplete: Function, onProgress?: (percent: number) => any, onError?: Function): any;
     static loadImage(name: string, url: string, version: string, retryTimes: number, onComplete: (loaded: boolean, img: HTMLImageElement) => any): any;
@@ -30,4 +34,5 @@ export declare class Loader {
     static getAltas(url: string): {
         [name: string]: Texture;
     };
+    private static getBasePath(url);
 }
