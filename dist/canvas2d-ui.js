@@ -1,5 +1,5 @@
 /**
- * canvas2d-ui v1.1.4
+ * canvas2d-ui v1.1.5
  * Copyright (c) 2017-present Todd Fon <tilfon9017@gmail.com>
  * All rights reserved.
  */
@@ -1974,6 +1974,9 @@ var Loader = (function () {
     Loader.setAudioChannel = function (channel) {
         this.audioChannel = channel;
     };
+    Loader.setMaxLoading = function (maxLoading) {
+        this.maxLoading = Math.max(1, maxLoading);
+    };
     Loader.clear = function () {
         this.loadedResources = {};
     };
@@ -1985,87 +1988,101 @@ var Loader = (function () {
         var _this = this;
         var loaded = 0;
         var result = [];
+        var stepLoaded;
+        var loadCount;
         var logAndReportError = function (type, url, version) {
             Utility.warn("Resource [" + exports.ResourceType[type] + "]\"" + url + "\"(version=" + version + ") loading failed.");
             onError && onError(type, url, version);
         };
-        resources.forEach(function (res, i) {
-            var retryTimes = _this.getRetryTimes(res);
-            switch (res.type) {
-                case exports.ResourceType.Altas:
-                    _this.loadAltas(res.url, version, retryTimes, function (success, altas) {
-                        if (success) {
-                            result[i] = altas;
-                        }
-                        else {
-                            logAndReportError(exports.ResourceType.Altas, res.url, version);
-                        }
-                        checkComplete();
-                    }, null, onError);
-                    break;
-                case exports.ResourceType.Image:
-                    _this.loadImage(res.url, res.url, version, retryTimes, function (success, img) {
-                        if (success) {
-                            result[i] = img;
-                        }
-                        else {
-                            logAndReportError(exports.ResourceType.Image, res.url, version);
-                        }
-                        checkComplete();
-                    });
-                    break;
-                case exports.ResourceType.Json:
-                    _this.loadJson(res.url, version, retryTimes, function (success, resp) {
-                        if (success) {
-                            result[i] = resp;
-                        }
-                        else {
-                            logAndReportError(exports.ResourceType.Json, res.url, version);
-                        }
-                        checkComplete();
-                    });
-                    break;
-                case exports.ResourceType.Audio:
-                    _this.loadAudio(res.url, version, res.channel == null ? _this.audioChannel : res.channel, retryTimes, function (success, audios) {
-                        if (success) {
-                            result[i] = audios;
-                        }
-                        else {
-                            logAndReportError(exports.ResourceType.Audio, res.url, version);
-                        }
-                        checkComplete();
-                    });
-                    break;
-                case exports.ResourceType.HtmlTemplate:
-                    _this.loadHtmlTemplate(res.url, version, retryTimes, function (success, html) {
-                        if (success) {
-                            result[i] = html;
-                        }
-                        else {
-                            logAndReportError(exports.ResourceType.HtmlTemplate, res.url, version);
-                        }
-                        checkComplete();
-                    });
-                    break;
-                case exports.ResourceType.JsonTemplate:
-                    _this.loadJsonTemplate(res.url, version, retryTimes, function (success, json) {
-                        if (success) {
-                            result[i] = json;
-                        }
-                        else {
-                            logAndReportError(exports.ResourceType.JsonTemplate, res.url, version);
-                        }
-                        checkComplete();
-                    });
-                    break;
+        var loadNext = function () {
+            loadCount = Math.min(_this.maxLoading, resources.length - loaded);
+            stepLoaded = 0;
+            var _loop_1 = function (i, l) {
+                var res = resources[i];
+                var retryTimes = _this.getRetryTimes(res);
+                switch (res.type) {
+                    case exports.ResourceType.Altas:
+                        _this.loadAltas(res.url, version, retryTimes, function (success, altas) {
+                            if (success) {
+                                result[i] = altas;
+                            }
+                            else {
+                                logAndReportError(exports.ResourceType.Altas, res.url, version);
+                            }
+                            checkComplete();
+                        }, null, onError);
+                        break;
+                    case exports.ResourceType.Image:
+                        _this.loadImage(res.url, res.url, version, retryTimes, function (success, img) {
+                            if (success) {
+                                result[i] = img;
+                            }
+                            else {
+                                logAndReportError(exports.ResourceType.Image, res.url, version);
+                            }
+                            checkComplete();
+                        });
+                        break;
+                    case exports.ResourceType.Json:
+                        _this.loadJson(res.url, version, retryTimes, function (success, resp) {
+                            if (success) {
+                                result[i] = resp;
+                            }
+                            else {
+                                logAndReportError(exports.ResourceType.Json, res.url, version);
+                            }
+                            checkComplete();
+                        });
+                        break;
+                    case exports.ResourceType.Audio:
+                        _this.loadAudio(res.url, version, res.channel == null ? _this.audioChannel : res.channel, retryTimes, function (success, audios) {
+                            if (success) {
+                                result[i] = audios;
+                            }
+                            else {
+                                logAndReportError(exports.ResourceType.Audio, res.url, version);
+                            }
+                            checkComplete();
+                        });
+                        break;
+                    case exports.ResourceType.HtmlTemplate:
+                        _this.loadHtmlTemplate(res.url, version, retryTimes, function (success, html) {
+                            if (success) {
+                                result[i] = html;
+                            }
+                            else {
+                                logAndReportError(exports.ResourceType.HtmlTemplate, res.url, version);
+                            }
+                            checkComplete();
+                        });
+                        break;
+                    case exports.ResourceType.JsonTemplate:
+                        _this.loadJsonTemplate(res.url, version, retryTimes, function (success, json) {
+                            if (success) {
+                                result[i] = json;
+                            }
+                            else {
+                                logAndReportError(exports.ResourceType.JsonTemplate, res.url, version);
+                            }
+                            checkComplete();
+                        });
+                        break;
+                }
+            };
+            for (var i = loaded, l = loaded + loadCount; i < l; i++) {
+                _loop_1(i, l);
             }
-        });
+        };
+        loadNext();
         function checkComplete() {
             loaded += 1;
             onProgress && onProgress(loaded / resources.length);
             // console.log(result);
             if (loaded === resources.length) {
                 onCompleted(result);
+            }
+            else if (++stepLoaded === loadCount) {
+                loadNext();
             }
         }
     };
@@ -2240,6 +2257,7 @@ var Loader = (function () {
     };
     Loader.audioChannel = 1;
     Loader.retryTimes = 1;
+    Loader.maxLoading = 5;
     Loader.basePathMap = {};
     Loader.altasMap = {};
     Loader.loadedResources = {};

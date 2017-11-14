@@ -23,6 +23,7 @@ export class Loader {
 
     private static audioChannel = 1;
     private static retryTimes = 1;
+    private static maxLoading = 5;
 
     private static basePathMap: { [key: string]: string } = {};
     private static altasMap: { [url: string]: { [name: string]: Texture } } = {};
@@ -38,6 +39,10 @@ export class Loader {
 
     public static setAudioChannel(channel: number) {
         this.audioChannel = channel;
+    }
+
+    public static setMaxLoading(maxLoading: number) {
+        this.maxLoading = Math.max(1, maxLoading);
     }
 
     public static clear() {
@@ -58,83 +63,91 @@ export class Loader {
     ) {
         let loaded = 0;
         let result = [];
+        let stepLoaded: number;
+        let loadCount: number;
 
         let logAndReportError = (type: ResourceType, url: string, version: string) => {
             Utility.warn(`Resource [${ResourceType[type]}]"${url}"(version=${version}) loading failed.`);
             onError && onError(type, url, version);
         }
-
-        resources.forEach((res, i) => {
-            let retryTimes = this.getRetryTimes(res);
-            switch (res.type) {
-                case ResourceType.Altas:
-                    this.loadAltas(res.url, version, retryTimes, (success, altas) => {
-                        if (success) {
-                            result[i] = altas;
-                        }
-                        else {
-                            logAndReportError(ResourceType.Altas, res.url, version);
-                        }
-                        checkComplete();
-                    }, null, onError);
-                    break;
-                case ResourceType.Image:
-                    this.loadImage(res.url, res.url, version, retryTimes, (success, img) => {
-                        if (success) {
-                            result[i] = img;
-                        }
-                        else {
-                            logAndReportError(ResourceType.Image, res.url, version);
-                        }
-                        checkComplete();
-                    });
-                    break;
-                case ResourceType.Json:
-                    this.loadJson(res.url, version, retryTimes, (success, resp) => {
-                        if (success) {
-                            result[i] = resp;
-                        }
-                        else {
-                            logAndReportError(ResourceType.Json, res.url, version);
-                        }
-                        checkComplete();
-                    });
-                    break;
-                case ResourceType.Audio:
-                    this.loadAudio(res.url, version, res.channel == null ? this.audioChannel : res.channel, retryTimes, (success, audios) => {
-                        if (success) {
-                            result[i] = audios;
-                        }
-                        else {
-                            logAndReportError(ResourceType.Audio, res.url, version);
-                        }
-                        checkComplete();
-                    });
-                    break;
-                case ResourceType.HtmlTemplate:
-                    this.loadHtmlTemplate(res.url, version, retryTimes, (success, html) => {
-                        if (success) {
-                            result[i] = html;
-                        }
-                        else {
-                            logAndReportError(ResourceType.HtmlTemplate, res.url, version);
-                        }
-                        checkComplete();
-                    });
-                    break;
-                case ResourceType.JsonTemplate:
-                    this.loadJsonTemplate(res.url, version, retryTimes, (success, json) => {
-                        if (success) {
-                            result[i] = json;
-                        }
-                        else {
-                            logAndReportError(ResourceType.JsonTemplate, res.url, version);
-                        }
-                        checkComplete();
-                    });
-                    break;
+        let loadNext = () => {
+            loadCount = Math.min(this.maxLoading, resources.length - loaded);
+            stepLoaded = 0;
+            for (let i = loaded, l = loaded + loadCount; i < l; i++) {
+                let res = resources[i];
+                let retryTimes = this.getRetryTimes(res);
+                switch (res.type) {
+                    case ResourceType.Altas:
+                        this.loadAltas(res.url, version, retryTimes, (success, altas) => {
+                            if (success) {
+                                result[i] = altas;
+                            }
+                            else {
+                                logAndReportError(ResourceType.Altas, res.url, version);
+                            }
+                            checkComplete();
+                        }, null, onError);
+                        break;
+                    case ResourceType.Image:
+                        this.loadImage(res.url, res.url, version, retryTimes, (success, img) => {
+                            if (success) {
+                                result[i] = img;
+                            }
+                            else {
+                                logAndReportError(ResourceType.Image, res.url, version);
+                            }
+                            checkComplete();
+                        });
+                        break;
+                    case ResourceType.Json:
+                        this.loadJson(res.url, version, retryTimes, (success, resp) => {
+                            if (success) {
+                                result[i] = resp;
+                            }
+                            else {
+                                logAndReportError(ResourceType.Json, res.url, version);
+                            }
+                            checkComplete();
+                        });
+                        break;
+                    case ResourceType.Audio:
+                        this.loadAudio(res.url, version, res.channel == null ? this.audioChannel : res.channel, retryTimes, (success, audios) => {
+                            if (success) {
+                                result[i] = audios;
+                            }
+                            else {
+                                logAndReportError(ResourceType.Audio, res.url, version);
+                            }
+                            checkComplete();
+                        });
+                        break;
+                    case ResourceType.HtmlTemplate:
+                        this.loadHtmlTemplate(res.url, version, retryTimes, (success, html) => {
+                            if (success) {
+                                result[i] = html;
+                            }
+                            else {
+                                logAndReportError(ResourceType.HtmlTemplate, res.url, version);
+                            }
+                            checkComplete();
+                        });
+                        break;
+                    case ResourceType.JsonTemplate:
+                        this.loadJsonTemplate(res.url, version, retryTimes, (success, json) => {
+                            if (success) {
+                                result[i] = json;
+                            }
+                            else {
+                                logAndReportError(ResourceType.JsonTemplate, res.url, version);
+                            }
+                            checkComplete();
+                        });
+                        break;
+                }
             }
-        });
+        }
+
+        loadNext();
 
         function checkComplete() {
             loaded += 1;
@@ -142,6 +155,9 @@ export class Loader {
             // console.log(result);
             if (loaded === resources.length) {
                 onCompleted(result);
+            }
+            else if (++stepLoaded === loadCount) {
+                loadNext();
             }
         }
     }

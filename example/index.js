@@ -186,6 +186,7 @@ var Example;
         canvas2dUI.Component("TestScene")
     ], TestScene);
     Example.app = new canvas2dUI.Application();
+    canvas2dUI.Loader.setMaxLoading(1);
     Example.app.createStage({
         canvas: document.getElementById("canvas"),
         width: 1136,
@@ -223,6 +224,9 @@ var Example;
                     type: canvas2dUI.ResourceType.HtmlTemplate
                 }, {
                     url: "title",
+                    type: canvas2dUI.ResourceType.HtmlTemplate,
+                }, {
+                    url: "title2",
                     type: canvas2dUI.ResourceType.HtmlTemplate,
                 }],
             component: "MainScene"

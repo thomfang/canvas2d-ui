@@ -141,6 +141,7 @@ namespace Example {
 
 
     export var app = new canvas2dUI.Application();
+    canvas2dUI.Loader.setMaxLoading(1);
     app.createStage({
         canvas: document.getElementById("canvas") as HTMLCanvasElement,
         width: 1136,
@@ -181,6 +182,9 @@ namespace Example {
                 type: canvas2dUI.ResourceType.HtmlTemplate
             }, {
                 url: "title",
+                type: canvas2dUI.ResourceType.HtmlTemplate,
+            }, {
+                url: "title2",
                 type: canvas2dUI.ResourceType.HtmlTemplate,
             }],
             component: "MainScene"

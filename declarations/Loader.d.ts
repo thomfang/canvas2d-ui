@@ -16,12 +16,14 @@ export declare type Resource = {
 export declare class Loader {
     private static audioChannel;
     private static retryTimes;
+    private static maxLoading;
     private static basePathMap;
     private static altasMap;
     private static loadedResources;
     static getRetryTimes(res: Resource): number;
     static setRetryTimes(times: number): void;
     static setAudioChannel(channel: number): void;
+    static setMaxLoading(maxLoading: number): void;
     static clear(): void;
     static getRes(url: string, version?: string): any;
     static load(resources: Resource[], version: string, onCompleted: Function, onProgress?: (percent: number) => any, onError?: (type: ResourceType, url: string, version: string) => any): void;
