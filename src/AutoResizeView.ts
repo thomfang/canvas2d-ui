@@ -2,7 +2,6 @@ import { Sprite, SpriteProps, AlignType, Action, ReleasePool } from 'canvas2djs'
 import { Layout } from './AutoLayoutView';
 import { BaseComponent, Property } from './ComponentManager';
 import "./InternalViews";
-import { Utility } from './Utility';
 
 export type AutoResizeViewProps = SpriteProps & {
     layout?: Layout;
@@ -26,7 +25,6 @@ export class AutoResizeView extends Sprite<AutoResizeViewProps> {
     protected _marginBottom: number;
     protected _verticalSpacing: number;
     protected _horizentalSpacing: number;
-    protected _isUpdatingView: boolean;
 
     constructor(props = {}) {
         super({
@@ -154,14 +152,9 @@ export class AutoResizeView extends Sprite<AutoResizeViewProps> {
     }
 
     protected updateView() {
-        if (this._isUpdatingView) {
-            return;
-        }
-        this._isUpdatingView = true;
         if (!this.children || !this.children.length) {
             this.width = 0;
             this.height = 0;
-            this._isUpdatingView = false;
             return;
         }
 
@@ -260,7 +253,6 @@ export class AutoResizeView extends Sprite<AutoResizeViewProps> {
                 this.width = 0;
             }
         }
-        this._isUpdatingView = false;
     }
 
     release(recusive?: boolean) {

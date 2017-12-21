@@ -1,5 +1,5 @@
 /**
- * canvas2d-ui v1.1.8
+ * canvas2d-ui v1.1.9
  * Copyright (c) 2017-present Todd Fon <tilfon9017@gmail.com>
  * All rights reserved.
  */
@@ -3545,14 +3545,9 @@ var AutoResizeView = (function (_super) {
         _super.prototype._onChildResize.call(this);
     };
     AutoResizeView.prototype.updateView = function () {
-        if (this._isUpdatingView) {
-            return;
-        }
-        this._isUpdatingView = true;
         if (!this.children || !this.children.length) {
             this.width = 0;
             this.height = 0;
-            this._isUpdatingView = false;
             return;
         }
         var _a = this, layout = _a.layout, alignChild = _a.alignChild, children = _a.children, marginLeft = _a.marginLeft, marginRight = _a.marginRight, marginBottom = _a.marginBottom, marginTop = _a.marginTop, verticalSpacing = _a.verticalSpacing, horizentalSpacing = _a.horizentalSpacing;
@@ -3647,7 +3642,6 @@ var AutoResizeView = (function (_super) {
                 this.width = 0;
             }
         }
-        this._isUpdatingView = false;
     };
     AutoResizeView.prototype.release = function (recusive) {
         canvas2djs.Action.stop(this);
