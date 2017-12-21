@@ -4,6 +4,7 @@ export declare class Observable {
     static observe(target: any, property: string, value: any): void;
     static makeObservable<T>(data: any): Observer;
     static toObservable(object: any): any;
+    static clear(object: any): void;
     static notifyChanged<T>(data: object): void;
 }
 export declare type PropertyAccessCallback = (observer: Observer, property: string, value: any, data) => any;

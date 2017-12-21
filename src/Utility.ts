@@ -151,14 +151,17 @@ export class Utility {
     public static deepClone(target) {
         if (target && typeof target === 'object') {
             if (Array.isArray(target)) {
-                return target.map((item) => {
-                    return this.deepClone(item);
-                });
+                let newArr = [];
+                for (let i = 0, l = target.length; i < l; i++) {
+                    let item = target[i];
+                    newArr[i] = this.deepClone(item);
+                }
+                return newArr;
             }
-            var ret = {};
-            Object.keys(target).forEach(name => {
+            let ret = {};
+            for (let name in target) {
                 ret[name] = this.deepClone(target[name]);
-            });
+            }
             return ret;
         }
 
@@ -167,9 +170,9 @@ export class Utility {
 
     public static queryStringToObject(str: string) {
         let ret: { [key: string]: any } = {};
-
-        str.split('&').forEach((pair) => {
-            let [key, value] = pair.split('=');
+        let list = str.split('&');
+        for (let i = 0, l = list.length; i < l; i++) {
+            let [key, value] = list[i].split('=');
             value = decodeURIComponent(value);
 
             if (ret[key] != null) {
@@ -181,7 +184,7 @@ export class Utility {
             else {
                 ret[key] = value;
             }
-        });
+        }
 
         return ret;
     }
@@ -205,8 +208,11 @@ export class Utility {
     private static nextTickHandle: number;
 
     public static nextTick(callback: Function, thisObject?) {
-        if (this.nextTickCallbacks.some(c => c.callback === callback && c.thisObject === thisObject)) {
-            return null;
+        for (let i = 0, l = this.nextTickCallbacks.length; i < l; i++) {
+            let context = this.nextTickCallbacks[i];
+            if (context.callback === callback && context.thisObject === thisObject) {
+                return null;
+            }
         }
         this.nextTickCallbacks.push({
             callback,
@@ -217,9 +223,10 @@ export class Utility {
                 this.nextTickHandle = null;
                 let callbacks = this.nextTickCallbacks.slice();
                 this.nextTickCallbacks.length = 0;
-                callbacks.forEach(context => {
+                for (let i = 0, l = callbacks.length; i < l; i++) {
+                    let context = callbacks[i];
                     context.callback.call(context.thisObject);
-                });
+                }
             });
         }
     }

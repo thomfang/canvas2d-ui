@@ -53,11 +53,20 @@ export class Request {
                         res: xhr.response,
                         xhr: xhr
                     });
+                    onError = null;
                 }
                 xhr = null;
                 onComplete && onComplete();
             }
         };
+
+        xhr.onerror = () => {
+            onError && onError({
+                res: xhr.response,
+                xhr: xhr
+            });
+            onError = xhr = null;
+        }
 
         xhr.open(type, url, true, options.user, options.password);
 
@@ -83,9 +92,9 @@ export class Request {
             xhr.setRequestHeader("Content-Type", contentType);
         }
 
-        Object.keys(headers).forEach(function (name) {
+        for (let name in headers) {
             xhr.setRequestHeader(name, headers[name]);
-        });
+        }
 
         xhr.send(data);
     }

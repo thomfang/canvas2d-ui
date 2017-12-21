@@ -13,9 +13,9 @@ export class StyleManager {
     }
 
     public static registerStyleMap(namespace: string, styleMap: { [name: string]: any }) {
-        Object.keys(styleMap).forEach(name => {
+        for (let name in styleMap) {
             this.registerStyle(`${namespace}-${name}`, styleMap[name]);
-        });
+        }
     }
 
     public static getStyleByName<T>(name: string): T {

@@ -24,7 +24,9 @@ export class ObservableArray {
         push: {
             value: function push(...args: any[]) {
                 let result = Array.prototype.push.apply(this, args);
-                args.forEach(Observable.makeObservable);
+                for (let i = 0, l = args.length; i < l; i++) {
+                    Observable.makeObservable(args[i]);
+                }
                 Observable.notifyChanged(this);
                 return result;
             }
@@ -33,7 +35,9 @@ export class ObservableArray {
         unshift: {
             value: function unshift(...args: any[]) {
                 let result = Array.prototype.unshift.apply(this, args);
-                args.forEach(Observable.makeObservable);
+                for (let i = 0, l = args.length; i < l; i++) {
+                    Observable.makeObservable(args[i]);
+                }
                 Observable.notifyChanged(this);
                 return result;
             }
@@ -42,7 +46,10 @@ export class ObservableArray {
         splice: {
             value: function splice(...args: any[]) {
                 let result = Array.prototype.splice.apply(this, args);
-                args.slice(2).forEach(Observable.makeObservable);
+                let list = args.slice(2);
+                for (let i = 0, l = list.length; i < l; i++) {
+                    Observable.makeObservable(list[i]);
+                }
                 Observable.notifyChanged(this);
                 return result;
             }
@@ -93,16 +100,17 @@ export class ObservableArray {
         var matchedIndexList: number[] = [];
         var step = 0;
 
-        array.forEach((item, index) => {
+        for (let index = 0, l = array.length; index < l; index++) {
+            let item = array[index];
             if (value === item) {
                 matchedIndexList.push(index - step++);
             }
-        });
+        }
 
         if (matchedIndexList.length) {
-            matchedIndexList.forEach(index => {
+            for (let index = 0, l = matchedIndexList.length; index < l; index++) {
                 array.splice(index, 1);
-            });
+            }
             Observable.notifyChanged(array);
         }
     }

@@ -199,7 +199,7 @@ export class Loader {
                 onComplete(true, altas);
             };
 
-            images.forEach(name => {
+            for (let name: string, i = 0; name = images[i]; i++) {
                 this.loadImage(name, basePath + name, version, this.retryTimes, (success, img) => {
                     if (!success && onError) {
                         onError(ResourceType.Image, basePath + name, version);
@@ -212,7 +212,7 @@ export class Loader {
                         onAllDone();
                     }
                 });
-            });
+            }
         });
     }
 
@@ -267,13 +267,26 @@ export class Loader {
             else {
                 onComplete(loaded, audioes);
             }
-        }, channel);
+        }, channel, version);
     }
 
     public static loadJson(url: string, version: string, retryTimes: number, onComplete: Function) {
         let requestUrl = url + '?v=' + version;
         if (this.loadedResources[requestUrl]) {
             return onComplete(true, this.loadedResources[requestUrl]);
+        }
+        let node = document.getElementById(url);
+        if (node && node.innerHTML) {
+            let html = node.innerHTML;
+            try {
+                let json = JSON.parse(html);
+                this.loadedResources[requestUrl] = json;
+                TemplateManager.registerJsonTemplate(url, json);
+                onComplete(true, json);
+            } catch (e) {
+                onComplete(false, null);
+            }
+            return;
         }
 
         Request.getJson(requestUrl, (res) => {
@@ -294,6 +307,14 @@ export class Loader {
         if (this.loadedResources[requestUrl]) {
             return onComplete(true, this.loadedResources[requestUrl]);
         }
+        let node = document.getElementById(url);
+        if (node && node.innerHTML) {
+            let html = node.innerHTML;
+            this.loadedResources[requestUrl] = html;
+            TemplateManager.registerHtmlTemplate(url, html);
+            return onComplete(true, html);
+        }
+
         Request.get(requestUrl, (html) => {
             this.loadedResources[requestUrl] = this.loadedResources[url] = html;
             TemplateManager.registerHtmlTemplate(url, html);

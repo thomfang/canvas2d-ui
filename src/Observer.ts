@@ -18,6 +18,9 @@ export class Observer extends EventEmitter {
     }
 
     emitPropertyChanged() {
-        this.propertyChangedListeners.slice().forEach(listener => listener());
+        let list = this.propertyChangedListeners.slice();
+        for (let listener: Function, i = 0; listener = list[i]; i++) {
+            listener();
+        }
     }
 }

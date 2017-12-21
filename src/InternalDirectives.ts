@@ -39,9 +39,9 @@ class IncludeDirective {
 
     removeTemplate() {
         if (this.directives) {
-            this.directives.forEach(directive => {
+            for (let i = 0, directive: IDirective; directive = this.directives[i]; i++) {
                 BindingManager.removeDirective(this.component, directive);
-            });
+            }
             this.parentSprite.replaceChild(this.currSprite, this.view.sprite);
             this.currSprite.release(true);
             this.directives = this.currSprite = null;
@@ -87,10 +87,12 @@ class ConditionDirective {
 
     removeBinding() {
         if (this.directives) {
-            this.directives.forEach(directive => {
+            let index = this.parentSprite.children.indexOf(this.currSprite);
+            for (let i = 0, directive: IDirective; directive = this.directives[i]; i++) {
                 BindingManager.removeDirective(this.component, directive);
-            });
-            this.parentSprite.replaceChild(this.currSprite, this.view.sprite);
+            }
+            // this.parentSprite.replaceChild(this.currSprite, this.view.sprite);
+            this.parentSprite.addChild(this.view.sprite, index);
             this.currSprite.release(true);
             this.currSprite = this.directives = null;
         }
@@ -139,9 +141,12 @@ class SlotPlaceholderDirective implements IDirective {
     }
 
     onDestroy() {
-        this.slotSprites && this.slotSprites.forEach(sprite => {
-            sprite.parent && sprite.parent.removeChild(sprite);
-        });
+        if (this.slotSprites) {
+            for (let i = 0, sprite: Sprite<{}>; sprite = this.slotSprites[i]; i++) {
+                // sprite.parent && sprite.parent.removeChild(sprite);
+                sprite.release(true);
+            }
+        }
     }
 }
 
@@ -210,16 +215,19 @@ class ForLoopDirective implements IDirective {
         let notAnyItems = !this.itemComponents || this.itemComponents.length === 0;
         let newItemComponents: IItemComponent[] = [];
 
-        itemDatas.forEach((item, index) => {
+        for (let index = 0, l = itemDatas.length; index < l; index++) {
+            let item = itemDatas[index];
             let itemComponent = newItemComponents[index] = this.getItemComponentByItem(item);
             itemComponent.__idle__ = false;
-        });
+        }
 
         if (!notAnyItems) {
             this.removeItemComponents();
         }
 
-        newItemComponents.forEach(itemVm => itemVm.__idle__ = true);
+        for (let i = 0, itemVm: IItemComponent; itemVm = newItemComponents[i]; i++) {
+            itemVm.__idle__ = true;
+        }
         this.itemComponents = newItemComponents;
 
         if (this.itemComponents.length) {
@@ -229,9 +237,15 @@ class ForLoopDirective implements IDirective {
                 parent.removeChild(sprite);
                 return sprite;
             });
-            sprites.forEach(sprite => {
-                parent.addChild(sprite, parent.children.indexOf(this.view.sprite));
-            });
+            let index = parent.children.indexOf(this.view.sprite);
+            for (let i = 0, sprite: Sprite<{}>; sprite = sprites[i]; i++) {
+                parent.addChild(sprite, index++);
+            }
+            // for (let i = 0, component: IItemComponent; component = this.itemComponents[i]; i++) {
+            //     let sprite = WeakRef.get(this.refKey, component);
+            //     parent.removeChild(sprite);
+            //     parent.addChild(sprite, index++);
+            // }
         }
     }
 
@@ -312,7 +326,7 @@ class ForLoopDirective implements IDirective {
     }
 
     removeItemComponents(forceRemove?: boolean) {
-        this.itemComponents.forEach(itemComponent => {
+        for (let i = 0, itemComponent: IItemComponent; itemComponent = this.itemComponents[i]; i++) {
             if (itemComponent.__idle__ || forceRemove) {
                 let value = itemComponent[this.keyValueName.value];
                 let sprite: Sprite<{}> = WeakRef.get(this.refKey, itemComponent);
@@ -331,7 +345,7 @@ class ForLoopDirective implements IDirective {
                     }
                 }
             }
-        });
+        }
     }
 
     parseExpression(expression: string) {
@@ -390,13 +404,14 @@ class ForLoopDirective implements IDirective {
         let list: ItemDataDescriptor[] = [];
 
         if (Array.isArray(target)) {
-            target.forEach((val, idx) => {
+            for (let idx = 0, l = target.length; idx < l; idx++) {
+                let val = target[idx];
                 list.push({
                     key: idx,
                     index: idx,
                     value: val
                 });
-            });
+            }
         }
         else if (Utility.isPlainObjectOrObservableObject(target)) {
             let idx = 0;

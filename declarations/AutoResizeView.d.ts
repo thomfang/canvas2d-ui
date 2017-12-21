@@ -20,6 +20,7 @@ export declare class AutoResizeView extends Sprite<AutoResizeViewProps> {
     protected _marginBottom: number;
     protected _verticalSpacing: number;
     protected _horizentalSpacing: number;
+    protected _isUpdatingView: boolean;
     constructor(props?: {});
     marginLeft: number;
     marginRight: number;
@@ -33,4 +34,5 @@ export declare class AutoResizeView extends Sprite<AutoResizeViewProps> {
     removeChild(target: Sprite<{}>): void;
     protected _onChildResize(): void;
     protected updateView(): void;
+    release(recusive?: boolean): void;
 }

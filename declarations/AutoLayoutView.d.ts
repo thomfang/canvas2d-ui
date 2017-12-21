@@ -30,8 +30,6 @@ export declare class AutoLayoutView extends ScrollView {
     autoSize: boolean;
     verticalSpacing: number;
     horizentalSpacing: number;
-    addChild(target: Sprite<{}>, position?: number): void;
-    removeChild(target: Sprite<{}>): void;
     protected updateView(): void;
     protected applyHorizentalAlign(sprites: Sprite<{}>[], totalWidth: number): void;
     protected applayVerticalAlign(sprites: Sprite<{}>[], totalHeight: number): void;

@@ -55,11 +55,12 @@ export class Watcher {
             return;
         }
 
-        Object.keys(this.observers).forEach((id) => {
-            Object.keys(this.properties[id]).forEach(property => {
+        for (let id in this.observers) {
+            let ps = this.properties[id];
+            for (let property in ps) {
                 this.observers[id].removeListener(property, this.propertyChanged);
-            });
-        });
+            }
+        }
 
         let key: string = Watcher.getKey(this.exp, this.isDeepWatch);
 
@@ -71,8 +72,8 @@ export class Watcher {
     }
 
     private propertyChanged(): void {
-        // Utility.nextTick(this.flush, this);
-        this.flush();
+        Utility.nextTick(this.flush, this);
+        // this.flush();
     }
 
     private flush() {
@@ -85,11 +86,12 @@ export class Watcher {
 
         if ((typeof newValue === 'object' && newValue != null) || newValue !== oldValue) {
             this.value = newValue;
-            this.callbacks.slice().forEach(callback => {
+            let list = this.callbacks.slice();
+            for (let i = 0, callback: Function; callback = list[i]; i++) {
                 if (this.isActived) {
                     callback(newValue, oldValue);
                 }
-            });
+            }
         }
     }
 
@@ -117,22 +119,23 @@ export class Watcher {
 
         let { observers, properties, tmpObservers, tmpProperties, propertyChanged } = this;
 
-        Object.keys(observers).forEach(id => {
+        for (let id in observers) {
             let observer = observers[id];
+            let ps = properties[id];
 
             if (!tmpObservers[id]) {
-                Object.keys(properties[id]).forEach(property => {
+                for (let property in ps) {
                     observer.removeListener(property, propertyChanged);
-                });
+                }
             }
             else {
-                Object.keys(properties[id]).forEach(property => {
+                for (let property in ps) {
                     if (!tmpProperties[id][property]) {
                         observer.removeListener(property, propertyChanged);
                     }
-                });
+                }
             }
-        });
+        }
 
         this.observers = tmpObservers;
         this.properties = tmpProperties;
@@ -171,14 +174,15 @@ export class Watcher {
 
 function recusiveVisit(value: any) {
     if (Utility.isPlainObjectOrObservableObject(value)) {
-        Object.keys(value).forEach(key => {
+        for (let key in value) {
             recusiveVisit(value[key]);
-        });
+        }
     }
     else if (Array.isArray(value)) {
-        value.forEach(item => {
+        for (let i = 0, l = value.length; i < l; i++) {
+            let item = value[i];
             recusiveVisit(item);
-        });
+        }
     }
 }
 

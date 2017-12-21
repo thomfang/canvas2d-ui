@@ -40,9 +40,9 @@ export class WatcherManager {
         let uid = Utility.getUid(component);
         let watchers = this.componentWatchers[uid];
         if (watchers) {
-            Object.keys(watchers).forEach(key => {
+            for (let key in watchers) {
                 watchers[key].destroy();
-            });
+            }
         }
         delete this.componentWatchers[uid];
     }

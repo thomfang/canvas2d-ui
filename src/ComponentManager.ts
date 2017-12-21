@@ -76,11 +76,11 @@ export class ComponentManager {
         let modelSource = this.createComponentModelSource(instance);
         let registeredProperties = this.getRegisteredComponentPropertiesByName(name);
         if (registeredProperties) {
-            Object.keys(registeredProperties).forEach(property => {
+            for (let property in registeredProperties) {
                 let value = instance[property];
                 Utility.createProxy(instance, property, modelSource);
                 ObservableObject.setProperty(modelSource, property, value);
-            });
+            }
         }
         if (typeof instance.onInit === "function") {
             instance.onInit();
@@ -94,11 +94,11 @@ export class ComponentManager {
         let modelSource = this.createComponentModelSource(instance);
         let registeredProperties = this.getRegisteredComponentProperties(instance);
         if (registeredProperties) {
-            Object.keys(registeredProperties).forEach(property => {
+            for (let property in registeredProperties) {
                 let value = instance[property];
                 Utility.createProxy(instance, property, modelSource);
                 ObservableObject.setProperty(modelSource, property, value);
-            });
+            }
         }
         if (typeof instance.onInit === "function") {
             instance.onInit();
@@ -145,10 +145,17 @@ export class ComponentManager {
 
         let uid = Utility.getUid(component);
         let properties = this.getRegisteredComponentProperties(component);
+        let modelSource = this.componentModelSources[uid];
         if (properties) {
-            Object.keys(properties).forEach(property => {
+            for (let property in properties) {
+                if (modelSource) {
+                    delete modelSource[property];
+                }
                 delete component[property];
-            });
+            }
+        }
+        if (modelSource) {
+            Observable.clear(modelSource);
         }
         delete this.componentModelSources[uid];
     }

@@ -57,7 +57,7 @@ export class ViewManager {
 
         if (node.attr) {
             let directives: { [name: string]: any };
-            Object.keys(node.attr).forEach(name => {
+            for (let name in node.attr) {
                 let value = node.attr[name];
                 if (BindingManager.isRegisteredDirective(name) || reBindableAttr.test(name) || Parser.hasInterpolation(value)) {
                     if (!directives) {
@@ -68,17 +68,19 @@ export class ViewManager {
                 else {
                     this.setAttribute(sprite, name, value);
                 }
-            });
+            }
 
             if (directives) {
                 view.directives = directives;
             }
         }
         if (node.child) {
-            let children = node.child.map(c => this.createView(c));
-            children.forEach(child => {
-                sprite.addChild(child.sprite);
-            });
+            let children: VirtualView[] = [];
+            for (let i = 0, vn: VirtualNode; vn = node.child[i]; i++) {
+                let v = this.createView(vn);
+                sprite.addChild(v.sprite);
+                children.push(v);
+            }
             view.child = children;
         }
 
@@ -91,7 +93,7 @@ export class ViewManager {
 
         if (node.attr) {
             let directives: { [name: string]: any };
-            Object.keys(node.attr).forEach(name => {
+            for (let name in node.attr) {
                 let value = node.attr[name];
                 if (BindingManager.isRegisteredDirective(name) || reBindableAttr.test(name) || Parser.hasInterpolation(value)) {
                     if (!directives) {
@@ -102,7 +104,7 @@ export class ViewManager {
                 else {
                     this.setAttribute(textLabel, name, value);
                 }
-            });
+            }
             if (directives) {
                 view.directives = directives;
             }
@@ -134,7 +136,7 @@ export class ViewManager {
 
         if (node.attr) {
             let directives: { [name: string]: any };
-            Object.keys(node.attr).forEach(name => {
+            for (let name in node.attr) {
                 let value = node.attr[name];
                 if (BindingManager.isRegisteredDirective(name) || reBindableAttr.test(name) || Parser.hasInterpolation(value)) {
                     if (!directives) {
@@ -145,7 +147,7 @@ export class ViewManager {
                 else if (name !== 'template') {
                     this.setAttribute(component, name, value);
                 }
-            });
+            }
             if (directives) {
                 view.directives = directives;
             }
@@ -183,7 +185,8 @@ export class ViewManager {
                 }
                 if (Array.isArray(attrValue)) {
                     styleProps = {};
-                    attrValue.forEach(styleName => {
+                    for (let i = 0, styleName: string, l = attrValue.length; i < l; i++) {
+                        styleName = attrValue[i];
                         let style = StyleManager.getStyleByName(styleName);
                         if (!style) {
                             Utility.warn(`Style "${styleName}" not found.`);
@@ -191,7 +194,7 @@ export class ViewManager {
                         else {
                             styleProps = { ...styleProps, ...style };
                         }
-                    });
+                    }
                 }
                 // else if (Object.prototype.toString.call(attrValue) === '[object Object]') {
                 //     styleProps = attrValue;
@@ -222,13 +225,15 @@ export class ViewManager {
                 action.start();
             }
             else if (Object.prototype.toString.call(attrValue) === '[object Object]') {
-                Object.keys(attrValue).forEach(name => {
+                for (let name in attrValue) {
                     if (!attrValue[name]) {
-                        return Action.stop(object, name);
+                        Action.stop(object, name);
+                        continue;
                     }
                     let style = StyleManager.getStyleByName(name) as ActionStyle;
                     if (style == null) {
-                        return Utility.error(`Action "${name}" not found.`);
+                        Utility.error(`Action "${name}" not found.`);
+                        continue;
                     }
                     if (style.startProps) {
                         object.setProps(style.startProps);
@@ -238,7 +243,7 @@ export class ViewManager {
                         action.setRepeatMode(style.repeatMode);
                     }
                     action.start();
-                });
+                }
             }
             else {
                 Utility.error(`Invalid action directive, value is not an object`, attrValue);

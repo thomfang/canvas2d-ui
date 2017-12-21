@@ -1,7 +1,8 @@
-import { Sprite, SpriteProps, AlignType } from 'canvas2djs';
+import { Sprite, SpriteProps, AlignType, Action, ReleasePool } from 'canvas2djs';
 import { Layout } from './AutoLayoutView';
 import { BaseComponent, Property } from './ComponentManager';
 import "./InternalViews";
+import { Utility } from './Utility';
 
 export type AutoResizeViewProps = SpriteProps & {
     layout?: Layout;
@@ -25,6 +26,7 @@ export class AutoResizeView extends Sprite<AutoResizeViewProps> {
     protected _marginBottom: number;
     protected _verticalSpacing: number;
     protected _horizentalSpacing: number;
+    protected _isUpdatingView: boolean;
 
     constructor(props = {}) {
         super({
@@ -152,9 +154,14 @@ export class AutoResizeView extends Sprite<AutoResizeViewProps> {
     }
 
     protected updateView() {
+        if (this._isUpdatingView) {
+            return;
+        }
+        this._isUpdatingView = true;
         if (!this.children || !this.children.length) {
             this.width = 0;
             this.height = 0;
+            this._isUpdatingView = false;
             return;
         }
 
@@ -166,9 +173,9 @@ export class AutoResizeView extends Sprite<AutoResizeViewProps> {
         if (layout === Layout.Horizontal) {
             width = marginLeft;
             height = 0;
-            children.forEach((sprite, index) => {
+            for (let index = 0, sprite: Sprite<{}>; sprite = children[index]; index++) {
                 if (sprite.width === 0 || !sprite.visible) {
-                    return;
+                    continue;
                 }
                 if (sprite.height > height) {
                     height = sprite.height;
@@ -177,7 +184,7 @@ export class AutoResizeView extends Sprite<AutoResizeViewProps> {
                 sprite.x = width + (<any>sprite)._originPixelX + spacing;
                 width += sprite.width + spacing;
                 count += 1;
-            });
+            }
 
             if (width > marginLeft) {
                 this.width = width + marginRight;
@@ -187,19 +194,19 @@ export class AutoResizeView extends Sprite<AutoResizeViewProps> {
             }
             if (height != 0) {
                 if (alignChild === AlignType.TOP) {
-                    this.children.forEach(sprite => {
+                    for (let i = 0, sprite: Sprite<{}>; sprite = this.children[i]; i++) {
                         sprite.y = marginTop + (<any>sprite)._originPixelY;
-                    });
+                    }
                 }
                 else if (alignChild === AlignType.BOTTOM) {
-                    this.children.forEach(sprite => {
+                    for (let i = 0, sprite: Sprite<{}>; sprite = this.children[i]; i++) {
                         sprite.y = marginTop + height - sprite.height + (<any>sprite)._originPixelY;
-                    });
+                    }
                 }
                 else {
-                    this.children.forEach(sprite => {
+                    for (let i = 0, sprite: Sprite<{}>; sprite = this.children[i]; i++) {
                         sprite.y = marginTop + (height - sprite.height) * 0.5 + (<any>sprite)._originPixelY;
-                    });
+                    }
                 }
                 height += marginTop + marginBottom;
                 this.height = height;
@@ -211,9 +218,9 @@ export class AutoResizeView extends Sprite<AutoResizeViewProps> {
         else if (layout === Layout.Vertical) {
             width = 0;
             height = marginTop;
-            children.forEach((sprite, index) => {
+            for (let index = 0, sprite: Sprite<{}>; sprite = children[index]; index++) {
                 if (sprite.height === 0 || !sprite.visible) {
-                    return;
+                    continue;
                 }
                 if (sprite.width > width) {
                     width = sprite.width;
@@ -222,7 +229,7 @@ export class AutoResizeView extends Sprite<AutoResizeViewProps> {
                 sprite.y = height + (<any>sprite)._originPixelY + spacing;
                 height += sprite.height + spacing;
                 count += 1;
-            });
+            }
 
             if (height > marginTop) {
                 this.height = height + marginBottom;
@@ -232,19 +239,19 @@ export class AutoResizeView extends Sprite<AutoResizeViewProps> {
             }
             if (width != 0) {
                 if (alignChild === AlignType.LEFT) {
-                    this.children.forEach(sprite => {
+                    for (let i = 0, sprite: Sprite<{}>; sprite = this.children[i]; i++) {
                         sprite.x = marginLeft + (<any>sprite)._originPixelX;
-                    });
+                    }
                 }
                 else if (alignChild === AlignType.RIGHT) {
-                    this.children.forEach(sprite => {
+                    for (let i = 0, sprite: Sprite<{}>; sprite = this.children[i]; i++) {
                         sprite.x = marginLeft + width - sprite.width + (<any>sprite)._originPixelX;
-                    });
+                    }
                 }
                 else {
-                    this.children.forEach(sprite => {
+                    for (let i = 0, sprite: Sprite<{}>; sprite = this.children[i]; i++) {
                         sprite.x = marginLeft + (width - sprite.width) * 0.5 + (<any>sprite)._originPixelX;
-                    });
+                    }
                 }
                 width += marginLeft + marginRight;
                 this.width = width;
@@ -253,5 +260,28 @@ export class AutoResizeView extends Sprite<AutoResizeViewProps> {
                 this.width = 0;
             }
         }
+        this._isUpdatingView = false;
+    }
+
+    release(recusive?: boolean) {
+        Action.stop(this);
+
+        if (recusive && this.children) {
+            while (this.children.length) {
+                this.children[0].release(recusive);
+            }
+        }
+        else if (this.children && this.children.length) {
+            while (this.children.length) {
+                super.removeChild(this.children[0]);
+            }
+        }
+
+        if (this.parent) {
+            this.parent.removeChild(this);
+        }
+
+        ReleasePool.instance.add(this);
+        this.removeAllListeners();
     }
 }

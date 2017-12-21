@@ -34,7 +34,7 @@ export class BindingManager {
         let directives = this.getComponentDirectives(component);
         let startIndex = directives.length;
         if (view.directives) {
-            Object.keys(view.directives).forEach(name => {
+            for (let name in view.directives) {
                 let exp = view.directives[name];
                 if (this.registeredDirectives[name]) {
                     this.createDirective(this.registeredDirectives[name].ctor, exp, component, view, context);
@@ -54,13 +54,15 @@ export class BindingManager {
                 else {
                     Utility.warn(`Unknow directive '${name}="${exp}".'`);
                 }
-            });
+            }
         }
         if (view.isComponent) {
             this.createComponentBinding(component, view);
         }
         else if (view.child) {
-            view.child.forEach(v => this.createBinding(component, v, context));
+            for (let i = 0, v: VirtualView; v = view.child[i]; i++) {
+                this.createBinding(component, v, context)
+            }
         }
 
         return directives.slice(startIndex);
@@ -70,7 +72,10 @@ export class BindingManager {
         let uid = Utility.getUid(component);
         let directives = this.componentDirectives[uid];
         if (directives) {
-            directives.slice().forEach(directive => this.removeDirective(component, directive));
+            let list = directives.slice();
+            for (let i = 0, directive: IDirective; directive = list[i]; i++) {
+                this.removeDirective(component, directive);
+            }
             delete this.componentDirectives[uid];
         }
     }
@@ -113,7 +118,9 @@ export class BindingManager {
     public static createComponentBinding(component: IComponent, view: VirtualView) {
         let context = {};
         if (view.nestChild) {
-            view.nestChild.forEach(v => this.createBinding(component, v, context));
+            for (let i = 0, v: VirtualView; v = view.nestChild[i]; i++) {
+                this.createBinding(component, v, context);
+            }
         }
         if (view.child) {
             if (typeof view.instance.onBeforeMount === 'function') {
@@ -126,12 +133,10 @@ export class BindingManager {
             let directive: IDirective = {
                 onDestroy: () => {
                     ComponentManager.destroyComponent(view.instance);
-                    // view.child[0].sprite.release(true);
+                    view.child[0].sprite.release(true);
                 },
             };
             this.addDirective(component, directive);
-
-            // view.child.forEach(v => this.createBinding(view.instance, v, context));
         }
     }
 

@@ -96,7 +96,7 @@ export class Application {
     }
 
     public registerRouter(routerOptions: RouterOptions) {
-        Object.keys(routerOptions).forEach(path => {
+        for (let path in routerOptions) {
             let options = routerOptions[path];
             let reg = pathToRegexp(path);
             let params = reg.keys.map(key => key.name);
@@ -109,7 +109,7 @@ export class Application {
                 path,
                 params,
             });
-        });
+        }
     }
 
     public start(url = location.hash.slice(1)) {
@@ -134,7 +134,9 @@ export class Application {
             if (router.reg.test(url)) {
                 result = router.reg.exec(url);
                 params = {};
-                router.params.forEach(saveParam);
+                for (let j = 0, n = router.params.length; j < n; j++) {
+                    params[router.params[j]] = result[j + 1];
+                }
                 return {
                     state: {
                         url,
@@ -194,7 +196,11 @@ export class Application {
             }
             ComponentManager.destroyComponent(this.currComponent);
             this.currComponent = null;
-            this.currScene.children && this.currScene.children.forEach(c => c.release(true));
+            if (this.currScene.children) {
+                for (let i = 0, child: Sprite<{}>; child = this.currScene.children[i]; i++) {
+                    child.release(true);
+                }
+            }
         }
 
         this.loadComponentResource(router);
@@ -213,13 +219,13 @@ export class Application {
 
             Loader.load(router.resources, this.version, () => {
                 Utility.addEnsureUniqueArrayItem(router.component, this.loadedComponents);
-                this.onLoaded(this.loadingSceneComponent, router.component, () => {
-                    if (this.currRouter === router) {
-                        this.createComponent(router);
-                    }
-                });
+                if (this.currRouter === router) {
+                    this.createComponent(router);
+                }
             }, (loadedPercent: number) => {
-                this.onLoadingProgress && this.onLoadingProgress(this.loadingSceneComponent, router.component, loadedPercent);
+                if (this.currRouter === router && this.onLoadingProgress) {
+                    this.onLoadingProgress(this.loadingSceneComponent, router.component, loadedPercent);
+                }
             }, (type: ResourceType, url: string, version: string) => {
                 this.onLoadingError && this.onLoadingError(this.loadingSceneComponent, type, url, version);
             });

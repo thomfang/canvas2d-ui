@@ -17,6 +17,7 @@ export declare class TouchScroll {
     constructor(onUpdate: (scrollPos: number) => any, onEnded: () => any);
     start(position: number): void;
     stop(): void;
+    release(): void;
     update(touchPos: number, maxScrollPos: number, scrollValue: number): void;
     finish(currScrollPos: number, maxScrollPos: number): void;
     private onTick();

@@ -1,5 +1,5 @@
 /**
- * canvas2d-ui v1.1.5
+ * canvas2d-ui v1.1.8
  * Copyright (c) 2017-present Todd Fon <tilfon9017@gmail.com>
  * All rights reserved.
  */
@@ -149,25 +149,28 @@ var Utility = (function () {
         return false;
     };
     Utility.deepClone = function (target) {
-        var _this = this;
         if (target && typeof target === 'object') {
             if (Array.isArray(target)) {
-                return target.map(function (item) {
-                    return _this.deepClone(item);
-                });
+                var newArr = [];
+                for (var i = 0, l = target.length; i < l; i++) {
+                    var item = target[i];
+                    newArr[i] = this.deepClone(item);
+                }
+                return newArr;
             }
             var ret = {};
-            Object.keys(target).forEach(function (name) {
-                ret[name] = _this.deepClone(target[name]);
-            });
+            for (var name in target) {
+                ret[name] = this.deepClone(target[name]);
+            }
             return ret;
         }
         return target;
     };
     Utility.queryStringToObject = function (str) {
         var ret = {};
-        str.split('&').forEach(function (pair) {
-            var _a = pair.split('='), key = _a[0], value = _a[1];
+        var list = str.split('&');
+        for (var i = 0, l = list.length; i < l; i++) {
+            var _a = list[i].split('='), key = _a[0], value = _a[1];
             value = decodeURIComponent(value);
             if (ret[key] != null) {
                 if (!Array.isArray(ret[key])) {
@@ -178,7 +181,7 @@ var Utility = (function () {
             else {
                 ret[key] = value;
             }
-        });
+        }
         return ret;
     };
     Utility.objToQueryString = function (obj) {
@@ -196,8 +199,11 @@ var Utility = (function () {
     };
     Utility.nextTick = function (callback, thisObject) {
         var _this = this;
-        if (this.nextTickCallbacks.some(function (c) { return c.callback === callback && c.thisObject === thisObject; })) {
-            return null;
+        for (var i = 0, l = this.nextTickCallbacks.length; i < l; i++) {
+            var context = this.nextTickCallbacks[i];
+            if (context.callback === callback && context.thisObject === thisObject) {
+                return null;
+            }
         }
         this.nextTickCallbacks.push({
             callback: callback,
@@ -208,9 +214,10 @@ var Utility = (function () {
                 _this.nextTickHandle = null;
                 var callbacks = _this.nextTickCallbacks.slice();
                 _this.nextTickCallbacks.length = 0;
-                callbacks.forEach(function (context) {
+                for (var i = 0, l = callbacks.length; i < l; i++) {
+                    var context = callbacks[i];
                     context.callback.call(context.thisObject);
-                });
+                }
             });
         }
     };
@@ -265,10 +272,18 @@ var Request = (function () {
                         res: xhr.response,
                         xhr: xhr
                     });
+                    onError = null;
                 }
                 xhr = null;
                 onComplete && onComplete();
             }
+        };
+        xhr.onerror = function () {
+            onError && onError({
+                res: xhr.response,
+                xhr: xhr
+            });
+            onError = xhr = null;
         };
         xhr.open(type, url, true, options.user, options.password);
         if (options.withCredentials) {
@@ -291,9 +306,9 @@ var Request = (function () {
         if (contentType) {
             xhr.setRequestHeader("Content-Type", contentType);
         }
-        Object.keys(headers).forEach(function (name) {
+        for (var name in headers) {
             xhr.setRequestHeader(name, headers[name]);
-        });
+        }
         xhr.send(data);
     };
     Request.get = function (url, onSuccess, onError, onComplete) {
@@ -408,7 +423,10 @@ var Observer = (function (_super) {
         }
     };
     Observer.prototype.emitPropertyChanged = function () {
-        this.propertyChangedListeners.slice().forEach(function (listener) { return listener(); });
+        var list = this.propertyChangedListeners.slice();
+        for (var listener = void 0, i = 0; listener = list[i]; i++) {
+            listener();
+        }
     };
     return Observer;
 }(canvas2djs.EventEmitter));
@@ -436,15 +454,16 @@ var ObservableArray = (function () {
     ObservableArray.removeAllByItem = function (array, value) {
         var matchedIndexList = [];
         var step = 0;
-        array.forEach(function (item, index) {
+        for (var index = 0, l = array.length; index < l; index++) {
+            var item = array[index];
             if (value === item) {
                 matchedIndexList.push(index - step++);
             }
-        });
+        }
         if (matchedIndexList.length) {
-            matchedIndexList.forEach(function (index) {
+            for (var index = 0, l = matchedIndexList.length; index < l; index++) {
                 array.splice(index, 1);
-            });
+            }
             Observable.notifyChanged(array);
         }
     };
@@ -470,7 +489,9 @@ var ObservableArray = (function () {
                     args[_i] = arguments[_i];
                 }
                 var result = Array.prototype.push.apply(this, args);
-                args.forEach(Observable.makeObservable);
+                for (var i = 0, l = args.length; i < l; i++) {
+                    Observable.makeObservable(args[i]);
+                }
                 Observable.notifyChanged(this);
                 return result;
             }
@@ -482,7 +503,9 @@ var ObservableArray = (function () {
                     args[_i] = arguments[_i];
                 }
                 var result = Array.prototype.unshift.apply(this, args);
-                args.forEach(Observable.makeObservable);
+                for (var i = 0, l = args.length; i < l; i++) {
+                    Observable.makeObservable(args[i]);
+                }
                 Observable.notifyChanged(this);
                 return result;
             }
@@ -494,7 +517,10 @@ var ObservableArray = (function () {
                     args[_i] = arguments[_i];
                 }
                 var result = Array.prototype.splice.apply(this, args);
-                args.slice(2).forEach(Observable.makeObservable);
+                var list = args.slice(2);
+                for (var i = 0, l = list.length; i < l; i++) {
+                    Observable.makeObservable(list[i]);
+                }
                 Observable.notifyChanged(this);
                 return result;
             }
@@ -591,15 +617,16 @@ var Observable = (function () {
                 }
             });
             if (isObject) {
-                Object.keys(data).forEach(function (property) {
+                for (var property in data) {
                     Observable.observe(data, property, data[property]);
-                });
+                }
             }
             else {
                 data.__proto__ = ObservableArray.extendedPrototype;
-                data.forEach(function (item) {
+                for (var i = 0, l = data.length; i < l; i++) {
+                    var item = data[i];
                     Observable.makeObservable(item);
-                });
+                }
             }
         }
         else {
@@ -610,6 +637,11 @@ var Observable = (function () {
     Observable.toObservable = function (object) {
         this.makeObservable(object);
         return object;
+    };
+    Observable.clear = function (object) {
+        if (object && object.__observer__ != null) {
+            delete object.__observer__;
+        }
     };
     Observable.notifyChanged = function (data) {
         var observer = data['__observer__'];
@@ -980,10 +1012,9 @@ var StyleManager = (function () {
         this.registeredStyle[name] = styleProps;
     };
     StyleManager.registerStyleMap = function (namespace, styleMap) {
-        var _this = this;
-        Object.keys(styleMap).forEach(function (name) {
-            _this.registerStyle(namespace + "-" + name, styleMap[name]);
-        });
+        for (var name in styleMap) {
+            this.registerStyle(namespace + "-" + name, styleMap[name]);
+        }
     };
     StyleManager.getStyleByName = function (name) {
         return this.registeredStyle[name];
@@ -1037,55 +1068,55 @@ var ViewManager = (function () {
         var _a;
     };
     ViewManager.createSprite = function (node, sprite) {
-        var _this = this;
         var view = { instance: sprite, sprite: sprite, };
         if (node.attr) {
-            var directives_1;
-            Object.keys(node.attr).forEach(function (name) {
+            var directives = void 0;
+            for (var name in node.attr) {
                 var value = node.attr[name];
                 if (BindingManager.isRegisteredDirective(name) || reBindableAttr.test(name) || Parser.hasInterpolation(value)) {
-                    if (!directives_1) {
-                        directives_1 = {};
+                    if (!directives) {
+                        directives = {};
                     }
-                    directives_1[name] = value;
+                    directives[name] = value;
                 }
                 else {
-                    _this.setAttribute(sprite, name, value);
+                    this.setAttribute(sprite, name, value);
                 }
-            });
-            if (directives_1) {
-                view.directives = directives_1;
+            }
+            if (directives) {
+                view.directives = directives;
             }
         }
         if (node.child) {
-            var children = node.child.map(function (c) { return _this.createView(c); });
-            children.forEach(function (child) {
-                sprite.addChild(child.sprite);
-            });
+            var children = [];
+            for (var i = 0, vn = void 0; vn = node.child[i]; i++) {
+                var v = this.createView(vn);
+                sprite.addChild(v.sprite);
+                children.push(v);
+            }
             view.child = children;
         }
         return view;
     };
     ViewManager.createTextLabel = function (node) {
-        var _this = this;
         var textLabel = node.tag === 'text' ? new canvas2djs.TextLabel() : new canvas2djs.BMFontLabel();
         var view = { instance: textLabel, sprite: textLabel, };
         if (node.attr) {
-            var directives_2;
-            Object.keys(node.attr).forEach(function (name) {
+            var directives = void 0;
+            for (var name in node.attr) {
                 var value = node.attr[name];
                 if (BindingManager.isRegisteredDirective(name) || reBindableAttr.test(name) || Parser.hasInterpolation(value)) {
-                    if (!directives_2) {
-                        directives_2 = {};
+                    if (!directives) {
+                        directives = {};
                     }
-                    directives_2[name] = value;
+                    directives[name] = value;
                 }
                 else {
-                    _this.setAttribute(textLabel, name, value);
+                    this.setAttribute(textLabel, name, value);
                 }
-            });
-            if (directives_2) {
-                view.directives = directives_2;
+            }
+            if (directives) {
+                view.directives = directives;
             }
         }
         if (node.child) {
@@ -1113,21 +1144,21 @@ var ViewManager = (function () {
         var view = { instance: component, isComponent: true, };
         var sprite;
         if (node.attr) {
-            var directives_3;
-            Object.keys(node.attr).forEach(function (name) {
+            var directives = void 0;
+            for (var name in node.attr) {
                 var value = node.attr[name];
                 if (BindingManager.isRegisteredDirective(name) || reBindableAttr.test(name) || Parser.hasInterpolation(value)) {
-                    if (!directives_3) {
-                        directives_3 = {};
+                    if (!directives) {
+                        directives = {};
                     }
-                    directives_3[name] = value;
+                    directives[name] = value;
                 }
                 else if (name !== 'template') {
-                    _this.setAttribute(component, name, value);
+                    this.setAttribute(component, name, value);
                 }
-            });
-            if (directives_3) {
-                view.directives = directives_3;
+            }
+            if (directives) {
+                view.directives = directives;
             }
             if (node.attr.template) {
                 var template = TemplateManager.getTemplateByName(node.attr.template);
@@ -1150,7 +1181,7 @@ var ViewManager = (function () {
     ViewManager.setAttribute = function (object, attrName, attrValue) {
         if (attrName === "styles") {
             if (typeof object.setProps === 'function') {
-                var styleProps_1;
+                var styleProps = void 0;
                 if (typeof attrValue === 'string') {
                     attrValue = attrValue.trim().split(/\s+/);
                 }
@@ -1158,21 +1189,22 @@ var ViewManager = (function () {
                     attrValue = Object.keys(attrValue).filter(function (name) { return !!attrValue[name]; });
                 }
                 if (Array.isArray(attrValue)) {
-                    styleProps_1 = {};
-                    attrValue.forEach(function (styleName) {
+                    styleProps = {};
+                    for (var i = 0, styleName = void 0, l = attrValue.length; i < l; i++) {
+                        styleName = attrValue[i];
                         var style = StyleManager.getStyleByName(styleName);
                         if (!style) {
                             Utility.warn("Style \"" + styleName + "\" not found.");
                         }
                         else {
-                            styleProps_1 = __assign({}, styleProps_1, style);
+                            styleProps = __assign({}, styleProps, style);
                         }
-                    });
+                    }
                 }
                 else {
                     return Utility.warn("Invalid style value:", attrValue);
                 }
-                object.setProps(styleProps_1);
+                object.setProps(styleProps);
             }
             else {
                 object[attrName] = attrValue;
@@ -1195,13 +1227,15 @@ var ViewManager = (function () {
                 action.start();
             }
             else if (Object.prototype.toString.call(attrValue) === '[object Object]') {
-                Object.keys(attrValue).forEach(function (name) {
+                for (var name in attrValue) {
                     if (!attrValue[name]) {
-                        return canvas2djs.Action.stop(object, name);
+                        canvas2djs.Action.stop(object, name);
+                        continue;
                     }
                     var style = StyleManager.getStyleByName(name);
                     if (style == null) {
-                        return Utility.error("Action \"" + name + "\" not found.");
+                        Utility.error("Action \"" + name + "\" not found.");
+                        continue;
                     }
                     if (style.startProps) {
                         object.setProps(style.startProps);
@@ -1211,7 +1245,7 @@ var ViewManager = (function () {
                         action.setRepeatMode(style.repeatMode);
                     }
                     action.start();
-                });
+                }
             }
             else {
                 Utility.error("Invalid action directive, value is not an object", attrValue);
@@ -1310,15 +1344,15 @@ var Watcher = (function () {
         }
     };
     Watcher.prototype.destroy = function () {
-        var _this = this;
         if (!this.isActived) {
             return;
         }
-        Object.keys(this.observers).forEach(function (id) {
-            Object.keys(_this.properties[id]).forEach(function (property) {
-                _this.observers[id].removeListener(property, _this.propertyChanged);
-            });
-        });
+        for (var id in this.observers) {
+            var ps = this.properties[id];
+            for (var property in ps) {
+                this.observers[id].removeListener(property, this.propertyChanged);
+            }
+        }
         var key = Watcher.getKey(this.exp, this.isDeepWatch);
         WatcherManager.removeWatcher(this.component, key);
         this.propertyChanged = this.value = this.component = this.exp = this.valueGetter = null;
@@ -1326,11 +1360,10 @@ var Watcher = (function () {
         this.isActived = false;
     };
     Watcher.prototype.propertyChanged = function () {
-        // Utility.nextTick(this.flush, this);
-        this.flush();
+        Utility.nextTick(this.flush, this);
+        // this.flush();
     };
     Watcher.prototype.flush = function () {
-        var _this = this;
         if (!this.isActived) {
             return;
         }
@@ -1338,11 +1371,12 @@ var Watcher = (function () {
         var newValue = this.getValue();
         if ((typeof newValue === 'object' && newValue != null) || newValue !== oldValue) {
             this.value = newValue;
-            this.callbacks.slice().forEach(function (callback) {
-                if (_this.isActived) {
+            var list = this.callbacks.slice();
+            for (var i = 0, callback = void 0; callback = list[i]; i++) {
+                if (this.isActived) {
                     callback(newValue, oldValue);
                 }
-            });
+            }
         }
     };
     Watcher.prototype.getValue = function () {
@@ -1362,21 +1396,22 @@ var Watcher = (function () {
     Watcher.prototype.afterCallValueGetter = function () {
         Observable.setBeforeAccessPropertyCallback(null);
         var _a = this, observers = _a.observers, properties = _a.properties, tmpObservers = _a.tmpObservers, tmpProperties = _a.tmpProperties, propertyChanged = _a.propertyChanged;
-        Object.keys(observers).forEach(function (id) {
+        for (var id in observers) {
             var observer = observers[id];
+            var ps = properties[id];
             if (!tmpObservers[id]) {
-                Object.keys(properties[id]).forEach(function (property) {
+                for (var property in ps) {
                     observer.removeListener(property, propertyChanged);
-                });
+                }
             }
             else {
-                Object.keys(properties[id]).forEach(function (property) {
+                for (var property in ps) {
                     if (!tmpProperties[id][property]) {
                         observer.removeListener(property, propertyChanged);
                     }
-                });
+                }
             }
-        });
+        }
         this.observers = tmpObservers;
         this.properties = tmpProperties;
     };
@@ -1409,14 +1444,15 @@ var Watcher = (function () {
 }());
 function recusiveVisit(value) {
     if (Utility.isPlainObjectOrObservableObject(value)) {
-        Object.keys(value).forEach(function (key) {
+        for (var key in value) {
             recusiveVisit(value[key]);
-        });
+        }
     }
     else if (Array.isArray(value)) {
-        value.forEach(function (item) {
+        for (var i = 0, l = value.length; i < l; i++) {
+            var item = value[i];
             recusiveVisit(item);
-        });
+        }
     }
 }
 
@@ -1458,9 +1494,9 @@ var WatcherManager = (function () {
         var uid = Utility.getUid(component);
         var watchers = this.componentWatchers[uid];
         if (watchers) {
-            Object.keys(watchers).forEach(function (key) {
+            for (var key in watchers) {
                 watchers[key].destroy();
-            });
+            }
         }
         delete this.componentWatchers[uid];
     };
@@ -1488,47 +1524,50 @@ var BindingManager = (function () {
         return this.registeredDirectives[name] != null;
     };
     BindingManager.createBinding = function (component, view, context) {
-        var _this = this;
         if (context === void 0) { context = {}; }
         var directives = this.getComponentDirectives(component);
         var startIndex = directives.length;
         if (view.directives) {
-            Object.keys(view.directives).forEach(function (name) {
+            for (var name in view.directives) {
                 var exp = view.directives[name];
-                if (_this.registeredDirectives[name]) {
-                    _this.createDirective(_this.registeredDirectives[name].ctor, exp, component, view, context);
+                if (this.registeredDirectives[name]) {
+                    this.createDirective(this.registeredDirectives[name].ctor, exp, component, view, context);
                 }
                 else if (name.slice(0, 2) === '::') {
-                    _this.createAttributeBinding(name.slice(2), exp, component, view.instance, true);
+                    this.createAttributeBinding(name.slice(2), exp, component, view.instance, true);
                 }
                 else if (name[0] === '@') {
-                    _this.createEventBinding(name.slice(1), exp, component, view.instance);
+                    this.createEventBinding(name.slice(1), exp, component, view.instance);
                 }
                 else if (name[0] === ':') {
-                    _this.createAttributeBinding(name.slice(1), exp, component, view.instance);
+                    this.createAttributeBinding(name.slice(1), exp, component, view.instance);
                 }
                 else if (Parser.hasInterpolation(exp)) {
-                    _this.createAttributeBinding(name, exp, component, view.instance);
+                    this.createAttributeBinding(name, exp, component, view.instance);
                 }
                 else {
                     Utility.warn("Unknow directive '" + name + "=\"" + exp + "\".'");
                 }
-            });
+            }
         }
         if (view.isComponent) {
             this.createComponentBinding(component, view);
         }
         else if (view.child) {
-            view.child.forEach(function (v) { return _this.createBinding(component, v, context); });
+            for (var i = 0, v = void 0; v = view.child[i]; i++) {
+                this.createBinding(component, v, context);
+            }
         }
         return directives.slice(startIndex);
     };
     BindingManager.removeBinding = function (component) {
-        var _this = this;
         var uid = Utility.getUid(component);
         var directives = this.componentDirectives[uid];
         if (directives) {
-            directives.slice().forEach(function (directive) { return _this.removeDirective(component, directive); });
+            var list = directives.slice();
+            for (var i = 0, directive = void 0; directive = list[i]; i++) {
+                this.removeDirective(component, directive);
+            }
             delete this.componentDirectives[uid];
         }
     };
@@ -1564,10 +1603,11 @@ var BindingManager = (function () {
         delete this.activedDirectives[uid];
     };
     BindingManager.createComponentBinding = function (component, view) {
-        var _this = this;
         var context = {};
         if (view.nestChild) {
-            view.nestChild.forEach(function (v) { return _this.createBinding(component, v, context); });
+            for (var i = 0, v = void 0; v = view.nestChild[i]; i++) {
+                this.createBinding(component, v, context);
+            }
         }
         if (view.child) {
             if (typeof view.instance.onBeforeMount === 'function') {
@@ -1580,11 +1620,10 @@ var BindingManager = (function () {
             var directive = {
                 onDestroy: function () {
                     ComponentManager.destroyComponent(view.instance);
-                    // view.child[0].sprite.release(true);
+                    view.child[0].sprite.release(true);
                 },
             };
             this.addDirective(component, directive);
-            // view.child.forEach(v => this.createBinding(view.instance, v, context));
         }
     };
     BindingManager.createAttributeBinding = function (attrName, expression, component, view, twoWayBinding) {
@@ -1713,11 +1752,11 @@ var ComponentManager = (function () {
         var modelSource = this.createComponentModelSource(instance);
         var registeredProperties = this.getRegisteredComponentPropertiesByName(name);
         if (registeredProperties) {
-            Object.keys(registeredProperties).forEach(function (property) {
+            for (var property in registeredProperties) {
                 var value = instance[property];
                 Utility.createProxy(instance, property, modelSource);
                 ObservableObject.setProperty(modelSource, property, value);
-            });
+            }
         }
         if (typeof instance.onInit === "function") {
             instance.onInit();
@@ -1729,11 +1768,11 @@ var ComponentManager = (function () {
         var modelSource = this.createComponentModelSource(instance);
         var registeredProperties = this.getRegisteredComponentProperties(instance);
         if (registeredProperties) {
-            Object.keys(registeredProperties).forEach(function (property) {
+            for (var property in registeredProperties) {
                 var value = instance[property];
                 Utility.createProxy(instance, property, modelSource);
                 ObservableObject.setProperty(modelSource, property, value);
-            });
+            }
         }
         if (typeof instance.onInit === "function") {
             instance.onInit();
@@ -1772,10 +1811,17 @@ var ComponentManager = (function () {
         WatcherManager.removeWatchers(component);
         var uid = Utility.getUid(component);
         var properties = this.getRegisteredComponentProperties(component);
+        var modelSource = this.componentModelSources[uid];
         if (properties) {
-            Object.keys(properties).forEach(function (property) {
+            for (var property in properties) {
+                if (modelSource) {
+                    delete modelSource[property];
+                }
                 delete component[property];
-            });
+            }
+        }
+        if (modelSource) {
+            Observable.clear(modelSource);
         }
         delete this.componentModelSources[uid];
     };
@@ -2121,7 +2167,7 @@ var Loader = (function () {
                 _this.loadedResources[requestUrl] = _this.loadedResources[url] = altas;
                 onComplete(true, altas);
             };
-            images.forEach(function (name) {
+            var _loop_2 = function (name, i) {
                 _this.loadImage(name, basePath + name, version, _this.retryTimes, function (success, img) {
                     if (!success && onError) {
                         onError(exports.ResourceType.Image, basePath + name, version);
@@ -2133,7 +2179,10 @@ var Loader = (function () {
                         onAllDone();
                     }
                 });
-            });
+            };
+            for (var name = void 0, i = 0; name = images[i]; i++) {
+                _loop_2(name, i);
+            }
         });
     };
     Loader.loadImage = function (name, url, version, retryTimes, onComplete) {
@@ -2186,13 +2235,27 @@ var Loader = (function () {
             else {
                 onComplete(loaded, audioes);
             }
-        }, channel);
+        }, channel, version);
     };
     Loader.loadJson = function (url, version, retryTimes, onComplete) {
         var _this = this;
         var requestUrl = url + '?v=' + version;
         if (this.loadedResources[requestUrl]) {
             return onComplete(true, this.loadedResources[requestUrl]);
+        }
+        var node = document.getElementById(url);
+        if (node && node.innerHTML) {
+            var html = node.innerHTML;
+            try {
+                var json = JSON.parse(html);
+                this.loadedResources[requestUrl] = json;
+                TemplateManager.registerJsonTemplate(url, json);
+                onComplete(true, json);
+            }
+            catch (e) {
+                onComplete(false, null);
+            }
+            return;
         }
         Request.getJson(requestUrl, function (res) {
             _this.loadedResources[requestUrl] = _this.loadedResources[url] = res;
@@ -2211,6 +2274,13 @@ var Loader = (function () {
         var requestUrl = url + '.html?v=' + version;
         if (this.loadedResources[requestUrl]) {
             return onComplete(true, this.loadedResources[requestUrl]);
+        }
+        var node = document.getElementById(url);
+        if (node && node.innerHTML) {
+            var html = node.innerHTML;
+            this.loadedResources[requestUrl] = html;
+            TemplateManager.registerHtmlTemplate(url, html);
+            return onComplete(true, html);
         }
         Request.get(requestUrl, function (html) {
             _this.loadedResources[requestUrl] = _this.loadedResources[url] = html;
@@ -2317,16 +2387,15 @@ var Application = (function () {
         }
     };
     Application.prototype.registerRouter = function (routerOptions) {
-        var _this = this;
-        Object.keys(routerOptions).forEach(function (path) {
+        for (var path in routerOptions) {
             var options = routerOptions[path];
             var reg = pathToRegexp(path);
             var params = reg.keys.map(function (key) { return key.name; });
             delete reg.keys;
-            _this.routers.push(__assign({}, options, { reg: reg,
+            this.routers.push(__assign({}, options, { reg: reg,
                 path: path,
                 params: params }));
-        });
+        }
     };
     Application.prototype.start = function (url) {
         if (url === void 0) { url = location.hash.slice(1); }
@@ -2348,7 +2417,9 @@ var Application = (function () {
             if (router.reg.test(url)) {
                 result = router.reg.exec(url);
                 params = {};
-                router.params.forEach(saveParam);
+                for (var j = 0, n = router.params.length; j < n; j++) {
+                    params[router.params[j]] = result[j + 1];
+                }
                 return {
                     state: {
                         url: url,
@@ -2402,7 +2473,11 @@ var Application = (function () {
             }
             ComponentManager.destroyComponent(this.currComponent);
             this.currComponent = null;
-            this.currScene.children && this.currScene.children.forEach(function (c) { return c.release(true); });
+            if (this.currScene.children) {
+                for (var i = 0, child = void 0; child = this.currScene.children[i]; i++) {
+                    child.release(true);
+                }
+            }
         }
         this.loadComponentResource(router);
     };
@@ -2417,13 +2492,13 @@ var Application = (function () {
             this.onLoadStart && this.onLoadStart(this.loadingSceneComponent, router.component);
             Loader.load(router.resources, this.version, function () {
                 Utility.addEnsureUniqueArrayItem(router.component, _this.loadedComponents);
-                _this.onLoaded(_this.loadingSceneComponent, router.component, function () {
-                    if (_this.currRouter === router) {
-                        _this.createComponent(router);
-                    }
-                });
+                if (_this.currRouter === router) {
+                    _this.createComponent(router);
+                }
             }, function (loadedPercent) {
-                _this.onLoadingProgress && _this.onLoadingProgress(_this.loadingSceneComponent, router.component, loadedPercent);
+                if (_this.currRouter === router && _this.onLoadingProgress) {
+                    _this.onLoadingProgress(_this.loadingSceneComponent, router.component, loadedPercent);
+                }
             }, function (type, url, version) {
                 _this.onLoadingError && _this.onLoadingError(_this.loadingSceneComponent, type, url, version);
             });
@@ -2556,6 +2631,10 @@ var TouchScroll = (function () {
         }
         this.velocity = 0;
         this.stopTick();
+    };
+    TouchScroll.prototype.release = function () {
+        this.stop();
+        this.onUpdate = this.onEnded = null;
     };
     TouchScroll.prototype.update = function (touchPos, maxScrollPos, scrollValue) {
         maxScrollPos = Math.max(0, maxScrollPos);
@@ -2776,14 +2855,24 @@ var ScrollView = (function (_super) {
         _this.onUpdateHorizentalScroll = function (scrollX) {
             _this.scroller.x = -scrollX;
             _this.scrollPos.x = scrollX;
-            _this.onScroll && _this.onScroll(__assign({}, _this.scrollPos));
-            _this.emit(ScrollView_1.SCROLL, __assign({}, _this.scrollPos));
+            _this.updateItemVisible();
+            var pos = {
+                x: _this.scrollPos.x,
+                y: _this.scrollPos.y,
+            };
+            _this.onScroll && _this.onScroll(pos);
+            _this.emit(ScrollView_1.SCROLL, pos);
         };
         _this.onUpdateVerticalScroll = function (scrollY) {
             _this.scroller.y = -scrollY;
             _this.scrollPos.y = scrollY;
-            _this.onScroll && _this.onScroll(__assign({}, _this.scrollPos));
-            _this.emit(ScrollView_1.SCROLL, __assign({}, _this.scrollPos));
+            _this.updateItemVisible();
+            var pos = {
+                x: _this.scrollPos.x,
+                y: _this.scrollPos.y,
+            };
+            _this.onScroll && _this.onScroll(pos);
+            _this.emit(ScrollView_1.SCROLL, pos);
         };
         _this.onTouchBeginHandler = function (helpers) {
             if (!_this.horizentalScroll && !_this.verticalScroll) {
@@ -2847,12 +2936,21 @@ var ScrollView = (function (_super) {
             percentHeight: 1,
         });
         _this.scroller.addChild = function (target, position) {
+            if (!this.children || this.children.length <= 1) {
+                this.visible = false;
+            }
             canvas2djs.Sprite.prototype.addChild.call(this, target, position);
-            this.parent && this.parent.updateView();
+            // this.parent && this.parent.updateView();
+            if (this.parent) {
+                Utility.nextTick(this.parent.updateView, this.parent);
+            }
         };
         _this.scroller.removeChild = function (target) {
             canvas2djs.Sprite.prototype.removeChild.call(this, target);
-            this.parent && this.parent.updateView();
+            // this.parent && this.parent.updateView();
+            if (this.parent) {
+                Utility.nextTick(this.parent.updateView, this.parent);
+            }
         };
         _this.bounce = _this.bounce == null ? true : _this.bounce;
         _super.prototype.addChild.call(_this, _this.scroller);
@@ -2865,11 +2963,11 @@ var ScrollView = (function (_super) {
     ScrollView_1 = ScrollView;
     ScrollView.prototype.addChild = function (child, position) {
         this.scroller.addChild(child, position);
-        this.updateView();
+        // this.updateView();
     };
     ScrollView.prototype.removeChild = function (child) {
         this.scroller.removeChild(child);
-        this.updateView();
+        // this.updateView();
     };
     ScrollView.prototype.removeAllChildren = function (recusive) {
         this.scroller.removeAllChildren(recusive);
@@ -2878,23 +2976,34 @@ var ScrollView = (function (_super) {
         return __assign({}, this.size);
     };
     ScrollView.prototype._onChildResize = function () {
+        Utility.nextTick(this.notifyResizeParent, this);
+    };
+    ScrollView.prototype.notifyResizeParent = function () {
         this.updateView();
-        _super.prototype._onChildResize.call(this);
+        if (this.parent) {
+            this.parent['_onChildResize']();
+        }
     };
     ScrollView.prototype.updateView = function () {
+        if (!this.scroller) {
+            return;
+        }
         var width = 0;
         var height = 0;
-        if (this.scroller.children) {
-            this.scroller.children.forEach(function (sprite) {
-                var right = sprite.x + sprite.width - sprite._originPixelX;
-                var bottom = sprite.y + sprite.height - sprite._originPixelY;
+        var children = this.scroller.children;
+        if (children) {
+            for (var i = 0, sprite = void 0; sprite = children[i]; i++) {
+                var left = sprite.x - sprite._originPixelX;
+                var top = sprite.y - sprite._originPixelY;
+                var right = left + sprite.width;
+                var bottom = top + sprite.height;
                 if (right > width) {
                     width = right;
                 }
                 if (bottom > height) {
                     height = bottom;
                 }
-            });
+            }
         }
         if (height - this.height < this.scrollPos.y && this.verticalScroll) {
             Utility.nextTick(this.fixScrollPosition, this);
@@ -2904,9 +3013,11 @@ var ScrollView = (function (_super) {
         }
         this.size.width = width;
         this.size.height = height;
+        this.scroller.visible = true;
+        this.updateItemVisible();
     };
     ScrollView.prototype.fixScrollPosition = function () {
-        if (!this.size) {
+        if (!this.size || !this.touchScrollHorizental || !this.touchScrollVertical) {
             return;
         }
         if (this.size.height - this.height < this.scrollPos.y && this.verticalScroll) {
@@ -2918,14 +3029,40 @@ var ScrollView = (function (_super) {
             this.onUpdateHorizentalScroll(Math.max(0, this.size.width - this.width));
         }
     };
+    ScrollView.prototype.updateItemVisible = function () {
+        var children = this.scroller.children;
+        var x = this.scroller.x;
+        var y = this.scroller.y;
+        var viewportWidth = this.width;
+        var viewportHeight = this.height;
+        if (children) {
+            for (var i = 0, sprite = void 0; sprite = children[i]; i++) {
+                var left = x + sprite.x - sprite._originPixelX;
+                var top = y + sprite.y - sprite._originPixelY;
+                var right = left + sprite.width;
+                var bottom = top + sprite.height;
+                if (left >= viewportWidth || right <= 0 || top >= viewportHeight || bottom <= 0) {
+                    sprite.visible = false;
+                }
+                else {
+                    sprite.visible = true;
+                }
+            }
+        }
+    };
     ScrollView.prototype.release = function (recusive) {
         if (this.stage) {
             this.stage.removeListener(canvas2djs.UIEvent.TOUCH_MOVED, this.onTouchMovedHandler);
             this.stage.removeListener(canvas2djs.UIEvent.TOUCH_ENDED, this.onTouchEndedHandler);
         }
-        this.touchScrollHorizental.stop();
-        this.touchScrollVertical.stop();
-        _super.prototype.removeChild.call(this, this.scroller);
+        this.touchScrollHorizental.release();
+        this.touchScrollVertical.release();
+        this.touchScrollHorizental = this.touchScrollVertical = null;
+        this.scroller.removeChild = this.removeChild = canvas2djs.Sprite.prototype.removeChild;
+        this.removeAllChildren = canvas2djs.Sprite.prototype.removeAllChildren;
+        // super.removeChild(this.scroller);
+        this.scroller.release(true);
+        this.scroller = null;
         _super.prototype.release.call(this, recusive);
     };
     ScrollView.SCROLL = "scroll";
@@ -2970,7 +3107,8 @@ var AutoLayoutView = (function (_super) {
         set: function (value) {
             if (value !== this._horizentalAlign) {
                 this._horizentalAlign = value;
-                this.updateView();
+                // this.updateView();
+                Utility.nextTick(this.updateView, this);
             }
         },
         enumerable: true,
@@ -2983,7 +3121,8 @@ var AutoLayoutView = (function (_super) {
         set: function (value) {
             if (value !== this._verticalAlign) {
                 this._verticalAlign = value;
-                this.updateView();
+                // this.updateView();
+                Utility.nextTick(this.updateView, this);
             }
         },
         enumerable: true,
@@ -2996,7 +3135,8 @@ var AutoLayoutView = (function (_super) {
         set: function (value) {
             if (value !== this._layout) {
                 this._layout = value;
-                this.updateView();
+                // this.updateView();
+                Utility.nextTick(this.updateView, this);
             }
         },
         enumerable: true,
@@ -3029,7 +3169,8 @@ var AutoLayoutView = (function (_super) {
         set: function (value) {
             if (value !== this._verticalSpacing) {
                 this._verticalSpacing = value;
-                this.updateView();
+                // this.updateView();
+                Utility.nextTick(this.updateView, this);
             }
         },
         enumerable: true,
@@ -3042,22 +3183,25 @@ var AutoLayoutView = (function (_super) {
         set: function (value) {
             if (value !== this._horizentalSpacing) {
                 this._horizentalSpacing = value;
-                this.updateView();
+                // this.updateView();
+                Utility.nextTick(this.updateView, this);
             }
         },
         enumerable: true,
         configurable: true
     });
-    AutoLayoutView.prototype.addChild = function (target, position) {
-        canvas2djs.Sprite.prototype.addChild.call(this.scroller, target, position);
-        this.updateView();
-    };
-    AutoLayoutView.prototype.removeChild = function (target) {
-        canvas2djs.Sprite.prototype.removeChild.call(this.scroller, target);
-        this.updateView();
-    };
+    // public addChild(target: Sprite<{}>, position?: number) {
+    //     Sprite.prototype.addChild.call(this.scroller, target, position);
+    //     this.updateView();
+    // }
+    // public removeChild(target: Sprite<{}>) {
+    //     Sprite.prototype.removeChild.call(this.scroller, target);
+    //     this.updateView();
+    // }
     AutoLayoutView.prototype.updateView = function () {
-        var _this = this;
+        if (!this.scroller) {
+            return;
+        }
         if (!this.scroller.children || !this.scroller.children.length) {
             this.size = { width: 0, height: 0 };
             if (this._autoSize) {
@@ -3072,7 +3216,7 @@ var AutoLayoutView = (function (_super) {
                 this.touchScrollVertical.stop();
             }
             if (this.horizentalScroll) {
-                this.touchScrollVertical.stop();
+                this.touchScrollHorizental.stop();
             }
             return;
         }
@@ -3086,71 +3230,71 @@ var AutoLayoutView = (function (_super) {
         var count = 0;
         var prevExist;
         if (this.layout === exports.Layout.Horizontal) {
-            var list_1 = [];
-            children.forEach(function (sprite, index) {
+            var list = [];
+            for (var index = 0, sprite = void 0; sprite = children[index]; index++) {
                 // sprite.left = null;
                 if (sprite.width === 0) {
-                    return;
+                    continue;
                 }
                 var spacing = (prevExist ? horizentalSpacing : 0);
                 var right = x + sprite.width + spacing;
                 if (right <= width || index === 0) {
                     // sprite.x = x + (sprite as any)._originPixelX + spacing;
-                    list_1.push(sprite);
+                    list.push(sprite);
                     x = right;
                     prevExist = true;
                 }
                 else {
-                    _this.applyHorizentalAlign(list_1, x);
+                    this.applyHorizentalAlign(list, x);
                     y += count > 0 ? verticalSpacing : 0;
-                    _this.alignChildHorizental(beginIndex, index - 1, children, y, maxHeight);
+                    this.alignChildHorizental(beginIndex, index - 1, children, y, maxHeight);
                     beginIndex = index;
                     y += maxHeight;
                     x = sprite.width;
                     // sprite.x = (sprite as any)._originPixelX;
-                    list_1 = [sprite];
+                    list = [sprite];
                     maxHeight = 0;
                     count += 1;
                 }
                 if (sprite.height > maxHeight) {
                     maxHeight = sprite.height;
                 }
-            });
-            this.applyHorizentalAlign(list_1, x);
+            }
+            this.applyHorizentalAlign(list, x);
             y += count > 0 ? verticalSpacing : 0;
             this.alignChildHorizental(beginIndex, children.length - 1, children, y, maxHeight);
         }
         else if (this.layout === exports.Layout.Vertical) {
-            var list_2 = [];
-            children.forEach(function (sprite, index) {
+            var list = [];
+            for (var index = 0, sprite = void 0; sprite = children[index]; index++) {
                 if (sprite.height === 0) {
-                    return;
+                    continue;
                 }
                 var spacing = (prevExist ? verticalSpacing : 0);
                 var bottom = y + sprite.height;
                 if (bottom <= height || index === 0) {
                     // sprite.y = y + (sprite as any)._originPixelY + spacing;
-                    list_2.push(sprite);
+                    list.push(sprite);
                     y = bottom;
                     prevExist = true;
                 }
                 else {
-                    _this.applayVerticalAlign(list_2, y);
+                    this.applayVerticalAlign(list, y);
                     x += count > 0 ? horizentalSpacing : 0;
-                    _this.alignChildVirtical(beginIndex, index - 1, children, x, maxWidth);
+                    this.alignChildVirtical(beginIndex, index - 1, children, x, maxWidth);
                     beginIndex = index;
                     x += maxWidth;
                     y = sprite.height;
                     // sprite.y = (sprite as any)._originPixelY;
-                    list_2 = [sprite];
+                    list = [sprite];
                     maxWidth = 0;
                     count += 1;
                 }
                 if (sprite.width > maxWidth) {
                     maxWidth = sprite.width;
                 }
-            });
-            this.applayVerticalAlign(list_2, y);
+            }
+            this.applayVerticalAlign(list, y);
             x += count > 0 ? horizentalSpacing : 0;
             this.alignChildVirtical(beginIndex, children.length - 1, children, x, maxWidth);
         }
@@ -3176,11 +3320,11 @@ var AutoLayoutView = (function (_super) {
         else if (this._horizentalAlign === canvas2djs.AlignType.RIGHT) {
             startX = this.width - totalWidth;
         }
-        sprites.forEach(function (sprite, i) {
+        for (var i = 0, sprite = void 0; sprite = sprites[i]; i++) {
             var spacing = (i > 0 ? horizentalSpacing : 0);
             sprite.x = startX + sprite._originPixelX + spacing;
             startX += sprite.width + spacing;
-        });
+        }
     };
     AutoLayoutView.prototype.applayVerticalAlign = function (sprites, totalHeight) {
         var verticalSpacing = this._verticalSpacing;
@@ -3191,11 +3335,11 @@ var AutoLayoutView = (function (_super) {
         else if (this._verticalAlign === canvas2djs.AlignType.BOTTOM) {
             startY = this.height - totalHeight;
         }
-        sprites.forEach(function (sprite, i) {
+        for (var i = 0, sprite = void 0; sprite = sprites[i]; i++) {
             var spacing = (i > 0 ? verticalSpacing : 0);
             sprite.y = startY + sprite._originPixelY + spacing;
             startY += sprite.height + spacing;
-        });
+        }
     };
     AutoLayoutView.prototype.alignChildVirtical = function (begin, end, sprites, x, width) {
         if (end < begin) {
@@ -3401,9 +3545,14 @@ var AutoResizeView = (function (_super) {
         _super.prototype._onChildResize.call(this);
     };
     AutoResizeView.prototype.updateView = function () {
+        if (this._isUpdatingView) {
+            return;
+        }
+        this._isUpdatingView = true;
         if (!this.children || !this.children.length) {
             this.width = 0;
             this.height = 0;
+            this._isUpdatingView = false;
             return;
         }
         var _a = this, layout = _a.layout, alignChild = _a.alignChild, children = _a.children, marginLeft = _a.marginLeft, marginRight = _a.marginRight, marginBottom = _a.marginBottom, marginTop = _a.marginTop, verticalSpacing = _a.verticalSpacing, horizentalSpacing = _a.horizentalSpacing;
@@ -3413,9 +3562,9 @@ var AutoResizeView = (function (_super) {
         if (layout === exports.Layout.Horizontal) {
             width = marginLeft;
             height = 0;
-            children.forEach(function (sprite, index) {
+            for (var index = 0, sprite = void 0; sprite = children[index]; index++) {
                 if (sprite.width === 0 || !sprite.visible) {
-                    return;
+                    continue;
                 }
                 if (sprite.height > height) {
                     height = sprite.height;
@@ -3424,7 +3573,7 @@ var AutoResizeView = (function (_super) {
                 sprite.x = width + sprite._originPixelX + spacing;
                 width += sprite.width + spacing;
                 count += 1;
-            });
+            }
             if (width > marginLeft) {
                 this.width = width + marginRight;
             }
@@ -3433,19 +3582,19 @@ var AutoResizeView = (function (_super) {
             }
             if (height != 0) {
                 if (alignChild === canvas2djs.AlignType.TOP) {
-                    this.children.forEach(function (sprite) {
+                    for (var i = 0, sprite = void 0; sprite = this.children[i]; i++) {
                         sprite.y = marginTop + sprite._originPixelY;
-                    });
+                    }
                 }
                 else if (alignChild === canvas2djs.AlignType.BOTTOM) {
-                    this.children.forEach(function (sprite) {
+                    for (var i = 0, sprite = void 0; sprite = this.children[i]; i++) {
                         sprite.y = marginTop + height - sprite.height + sprite._originPixelY;
-                    });
+                    }
                 }
                 else {
-                    this.children.forEach(function (sprite) {
+                    for (var i = 0, sprite = void 0; sprite = this.children[i]; i++) {
                         sprite.y = marginTop + (height - sprite.height) * 0.5 + sprite._originPixelY;
-                    });
+                    }
                 }
                 height += marginTop + marginBottom;
                 this.height = height;
@@ -3457,9 +3606,9 @@ var AutoResizeView = (function (_super) {
         else if (layout === exports.Layout.Vertical) {
             width = 0;
             height = marginTop;
-            children.forEach(function (sprite, index) {
+            for (var index = 0, sprite = void 0; sprite = children[index]; index++) {
                 if (sprite.height === 0 || !sprite.visible) {
-                    return;
+                    continue;
                 }
                 if (sprite.width > width) {
                     width = sprite.width;
@@ -3468,7 +3617,7 @@ var AutoResizeView = (function (_super) {
                 sprite.y = height + sprite._originPixelY + spacing;
                 height += sprite.height + spacing;
                 count += 1;
-            });
+            }
             if (height > marginTop) {
                 this.height = height + marginBottom;
             }
@@ -3477,19 +3626,19 @@ var AutoResizeView = (function (_super) {
             }
             if (width != 0) {
                 if (alignChild === canvas2djs.AlignType.LEFT) {
-                    this.children.forEach(function (sprite) {
+                    for (var i = 0, sprite = void 0; sprite = this.children[i]; i++) {
                         sprite.x = marginLeft + sprite._originPixelX;
-                    });
+                    }
                 }
                 else if (alignChild === canvas2djs.AlignType.RIGHT) {
-                    this.children.forEach(function (sprite) {
+                    for (var i = 0, sprite = void 0; sprite = this.children[i]; i++) {
                         sprite.x = marginLeft + width - sprite.width + sprite._originPixelX;
-                    });
+                    }
                 }
                 else {
-                    this.children.forEach(function (sprite) {
+                    for (var i = 0, sprite = void 0; sprite = this.children[i]; i++) {
                         sprite.x = marginLeft + (width - sprite.width) * 0.5 + sprite._originPixelX;
-                    });
+                    }
                 }
                 width += marginLeft + marginRight;
                 this.width = width;
@@ -3498,6 +3647,25 @@ var AutoResizeView = (function (_super) {
                 this.width = 0;
             }
         }
+        this._isUpdatingView = false;
+    };
+    AutoResizeView.prototype.release = function (recusive) {
+        canvas2djs.Action.stop(this);
+        if (recusive && this.children) {
+            while (this.children.length) {
+                this.children[0].release(recusive);
+            }
+        }
+        else if (this.children && this.children.length) {
+            while (this.children.length) {
+                _super.prototype.removeChild.call(this, this.children[0]);
+            }
+        }
+        if (this.parent) {
+            this.parent.removeChild(this);
+        }
+        canvas2djs.ReleasePool.instance.add(this);
+        this.removeAllListeners();
     };
     __decorate([
         Property(Number)
@@ -3583,11 +3751,10 @@ var IncludeDirective = (function () {
         this.currSprite = newView.sprite;
     };
     IncludeDirective.prototype.removeTemplate = function () {
-        var _this = this;
         if (this.directives) {
-            this.directives.forEach(function (directive) {
-                BindingManager.removeDirective(_this.component, directive);
-            });
+            for (var i = 0, directive = void 0; directive = this.directives[i]; i++) {
+                BindingManager.removeDirective(this.component, directive);
+            }
             this.parentSprite.replaceChild(this.currSprite, this.view.sprite);
             this.currSprite.release(true);
             this.directives = this.currSprite = null;
@@ -3626,12 +3793,13 @@ var ConditionDirective = (function () {
         }
     };
     ConditionDirective.prototype.removeBinding = function () {
-        var _this = this;
         if (this.directives) {
-            this.directives.forEach(function (directive) {
-                BindingManager.removeDirective(_this.component, directive);
-            });
-            this.parentSprite.replaceChild(this.currSprite, this.view.sprite);
+            var index = this.parentSprite.children.indexOf(this.currSprite);
+            for (var i = 0, directive = void 0; directive = this.directives[i]; i++) {
+                BindingManager.removeDirective(this.component, directive);
+            }
+            // this.parentSprite.replaceChild(this.currSprite, this.view.sprite);
+            this.parentSprite.addChild(this.view.sprite, index);
             this.currSprite.release(true);
             this.currSprite = this.directives = null;
         }
@@ -3680,9 +3848,12 @@ var SlotPlaceholderDirective = (function () {
         var _a;
     };
     SlotPlaceholderDirective.prototype.onDestroy = function () {
-        this.slotSprites && this.slotSprites.forEach(function (sprite) {
-            sprite.parent && sprite.parent.removeChild(sprite);
-        });
+        if (this.slotSprites) {
+            for (var i = 0, sprite = void 0; sprite = this.slotSprites[i]; i++) {
+                // sprite.parent && sprite.parent.removeChild(sprite);
+                sprite.release(true);
+            }
+        }
     };
     SlotPlaceholderDirective = __decorate([
         Directive(":slot")
@@ -3742,14 +3913,17 @@ var ForLoopDirective = (function () {
         var itemDatas = this.itemDatas = this.toList(newValue);
         var notAnyItems = !this.itemComponents || this.itemComponents.length === 0;
         var newItemComponents = [];
-        itemDatas.forEach(function (item, index) {
-            var itemComponent = newItemComponents[index] = _this.getItemComponentByItem(item);
+        for (var index = 0, l = itemDatas.length; index < l; index++) {
+            var item = itemDatas[index];
+            var itemComponent = newItemComponents[index] = this.getItemComponentByItem(item);
             itemComponent.__idle__ = false;
-        });
+        }
         if (!notAnyItems) {
             this.removeItemComponents();
         }
-        newItemComponents.forEach(function (itemVm) { return itemVm.__idle__ = true; });
+        for (var i = 0, itemVm = void 0; itemVm = newItemComponents[i]; i++) {
+            itemVm.__idle__ = true;
+        }
         this.itemComponents = newItemComponents;
         if (this.itemComponents.length) {
             var parent_1 = this.view.sprite.parent;
@@ -3758,9 +3932,15 @@ var ForLoopDirective = (function () {
                 parent_1.removeChild(sprite);
                 return sprite;
             });
-            sprites.forEach(function (sprite) {
-                parent_1.addChild(sprite, parent_1.children.indexOf(_this.view.sprite));
-            });
+            var index = parent_1.children.indexOf(this.view.sprite);
+            for (var i = 0, sprite = void 0; sprite = sprites[i]; i++) {
+                parent_1.addChild(sprite, index++);
+            }
+            // for (let i = 0, component: IItemComponent; component = this.itemComponents[i]; i++) {
+            //     let sprite = WeakRef.get(this.refKey, component);
+            //     parent.removeChild(sprite);
+            //     parent.addChild(sprite, index++);
+            // }
         }
     };
     ForLoopDirective.prototype.getItemComponentByItem = function (item) {
@@ -3831,24 +4011,23 @@ var ForLoopDirective = (function () {
         return itemComponent;
     };
     ForLoopDirective.prototype.removeItemComponents = function (forceRemove) {
-        var _this = this;
-        this.itemComponents.forEach(function (itemComponent) {
+        for (var i = 0, itemComponent = void 0; itemComponent = this.itemComponents[i]; i++) {
             if (itemComponent.__idle__ || forceRemove) {
-                var value = itemComponent[_this.keyValueName.value];
-                var sprite = WeakRef.get(_this.refKey, itemComponent);
+                var value = itemComponent[this.keyValueName.value];
+                var sprite = WeakRef.get(this.refKey, itemComponent);
                 itemComponent.$parent = null;
                 ComponentManager.destroyComponent(itemComponent);
                 sprite.release(true);
-                if (!_this.trackByKey) {
-                    var components = WeakRef.get(_this.refKey, value);
-                    WeakRef.remove(_this.refKey, itemComponent);
+                if (!this.trackByKey) {
+                    var components = WeakRef.get(this.refKey, value);
+                    WeakRef.remove(this.refKey, itemComponent);
                     Utility.removeItemFromArray(itemComponent, components);
                     if (!components.length) {
-                        WeakRef.remove(_this.refKey, value);
+                        WeakRef.remove(this.refKey, value);
                     }
                 }
             }
-        });
+        }
     };
     ForLoopDirective.prototype.parseExpression = function (expression) {
         var parts = expression.split(regParam);
@@ -3897,13 +4076,14 @@ var ForLoopDirective = (function () {
     ForLoopDirective.prototype.toList = function (target) {
         var list = [];
         if (Array.isArray(target)) {
-            target.forEach(function (val, idx) {
+            for (var idx = 0, l = target.length; idx < l; idx++) {
+                var val = target[idx];
                 list.push({
                     key: idx,
                     index: idx,
                     value: val
                 });
-            });
+            }
         }
         else if (Utility.isPlainObjectOrObservableObject(target)) {
             var idx = 0;

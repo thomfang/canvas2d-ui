@@ -94,16 +94,17 @@ export class Observable {
             });
 
             if (isObject) {
-                Object.keys(data).forEach((property: string) => {
+                for (let property in data) {
                     Observable.observe(data, property, data[property]);
-                });
+                }
             }
             else {
                 data.__proto__ = ObservableArray.extendedPrototype;
 
-                data.forEach((item) => {
+                for (let i = 0, l = data.length; i < l; i++) {
+                    let item = data[i];
                     Observable.makeObservable(item);
-                });
+                }
             }
         }
         else {
@@ -116,6 +117,12 @@ export class Observable {
     public static toObservable(object) {
         this.makeObservable(object);
         return object;
+    }
+
+    public static clear(object) {
+        if (object && object.__observer__ != null) {
+            delete object.__observer__;
+        }
     }
 
     public static notifyChanged<T>(data: object): void {

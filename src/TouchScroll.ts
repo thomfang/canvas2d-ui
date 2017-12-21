@@ -82,6 +82,11 @@ export class TouchScroll {
         this.stopTick();
     }
 
+    public release() {
+        this.stop();
+        this.onUpdate = this.onEnded = null;
+    }
+
     public update(touchPos: number, maxScrollPos: number, scrollValue: number) {
         maxScrollPos = Math.max(0, maxScrollPos);
         this.currentPos = touchPos;
