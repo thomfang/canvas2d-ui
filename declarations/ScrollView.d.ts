@@ -46,5 +46,8 @@ export declare class ScrollView extends Sprite<ScrollViewProps> {
     protected onTouchBeginHandler: (helpers: EventHelper[]) => void;
     protected onTouchMovedHandler: (helpers: EventHelper[]) => void;
     protected onTouchEndedHandler: (helpers: EventHelper[]) => void;
+    protected onMouseBeginHandler: (helper: EventHelper) => void;
+    protected onMouseMovedHandler: (helper: EventHelper) => void;
+    protected onMouseEndedHandler: (helper: EventHelper) => void;
     release(recusive?: boolean): void;
 }

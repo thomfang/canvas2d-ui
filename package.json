@@ -1,11 +1,11 @@
 {
   "name": "canvas2d-ui",
-  "version": "1.1.9",
+  "version": "1.2.0",
   "description": "Application framework for canvas2djs",
   "main": "./dist/canvas2d-ui.js",
   "types": "./declarations/index.d.ts",
   "dependencies": {
-    "canvas2djs": "^2.5.8"
+    "canvas2djs": "^2.6.0"
   },
   "devDependencies": {
     "@alexlur/rollup-plugin-typescript": "^1.0.2",

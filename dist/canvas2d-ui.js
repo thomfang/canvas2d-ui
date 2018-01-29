@@ -1,5 +1,5 @@
 /**
- * canvas2d-ui v1.1.9
+ * canvas2d-ui v1.2.0
  * Copyright (c) 2017-present Todd Fon <tilfon9017@gmail.com>
  * All rights reserved.
  */
@@ -2927,6 +2927,53 @@ var ScrollView = (function (_super) {
             }
             _this.beginPos = _this.beginPosId = null;
         };
+        _this.onMouseBeginHandler = function (helper) {
+            if (!_this.horizentalScroll && !_this.verticalScroll) {
+                return;
+            }
+            _this.beginPosId = helper.identifier;
+            _this.beginPos = { x: helper.stageX, y: helper.stageY };
+            if (_this.horizentalScroll) {
+                _this.touchScrollHorizental.start(helper.stageX);
+            }
+            if (_this.verticalScroll) {
+                _this.touchScrollVertical.start(helper.stageY);
+            }
+            // helper.stopPropagation();
+            if (_this.stage) {
+                _this.stage.on(canvas2djs.UIEvent.MOUSE_MOVED, _this.onMouseMovedHandler);
+                _this.stage.on(canvas2djs.UIEvent.MOUSE_ENDED, _this.onMouseEndedHandler);
+            }
+        };
+        _this.onMouseMovedHandler = function (helper) {
+            if (!_this.beginPos || helper.identifier !== _this.beginPosId) {
+                return;
+            }
+            var beginPos = _this.beginPos;
+            if (_this.horizentalScroll && Math.abs(helper.stageX - beginPos.x) >= ScrollView_1.scrollThreshold) {
+                _this.touchScrollHorizental.update(helper.stageX, _this.size.width - _this.width, _this.scrollPos.x);
+            }
+            if (_this.verticalScroll && Math.abs(helper.stageY - beginPos.y) >= ScrollView_1.scrollThreshold) {
+                _this.touchScrollVertical.update(helper.stageY, _this.size.height - _this.height, _this.scrollPos.y);
+            }
+            helper.stopPropagation();
+        };
+        _this.onMouseEndedHandler = function (helper) {
+            if (_this.stage) {
+                _this.stage.removeListener(canvas2djs.UIEvent.MOUSE_MOVED, _this.onMouseMovedHandler);
+                _this.stage.removeListener(canvas2djs.UIEvent.MOUSE_ENDED, _this.onMouseEndedHandler);
+            }
+            if (_this.horizentalScroll) {
+                _this.touchScrollHorizental.finish(_this.scrollPos.x, _this.size.width - _this.width);
+            }
+            if (_this.verticalScroll) {
+                _this.touchScrollVertical.finish(_this.scrollPos.y, _this.size.height - _this.height);
+            }
+            if (_this.beginPos && _this.beginPosId === helper.identifier) {
+                helper && helper.stopPropagation();
+            }
+            _this.beginPos = _this.beginPosId = null;
+        };
         _this.size = { width: 0, height: 0 };
         _this.scrollPos = { x: 0, y: 0 };
         _this.scroller = new canvas2djs.Sprite({
@@ -2958,6 +3005,7 @@ var ScrollView = (function (_super) {
         _this.touchScrollVertical = new TouchScroll(_this.onUpdateVerticalScroll, function () { });
         _this.touchScrollHorizental.bounce = _this.touchScrollVertical.bounce = _this.bounce;
         _this.on(canvas2djs.UIEvent.TOUCH_BEGIN, _this.onTouchBeginHandler);
+        _this.on(canvas2djs.UIEvent.MOUSE_BEGIN, _this.onMouseBeginHandler);
         return _this;
     }
     ScrollView_1 = ScrollView;
@@ -3054,6 +3102,8 @@ var ScrollView = (function (_super) {
         if (this.stage) {
             this.stage.removeListener(canvas2djs.UIEvent.TOUCH_MOVED, this.onTouchMovedHandler);
             this.stage.removeListener(canvas2djs.UIEvent.TOUCH_ENDED, this.onTouchEndedHandler);
+            this.stage.removeListener(canvas2djs.UIEvent.MOUSE_MOVED, this.onMouseMovedHandler);
+            this.stage.removeListener(canvas2djs.UIEvent.MOUSE_ENDED, this.onMouseEndedHandler);
         }
         this.touchScrollHorizental.release();
         this.touchScrollVertical.release();

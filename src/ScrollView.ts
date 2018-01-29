@@ -77,6 +77,7 @@ export class ScrollView extends Sprite<ScrollViewProps> {
         this.touchScrollHorizental.bounce = this.touchScrollVertical.bounce = this.bounce;
 
         this.on(UIEvent.TOUCH_BEGIN, this.onTouchBeginHandler);
+        this.on(UIEvent.MOUSE_BEGIN, this.onMouseBeginHandler);
     }
 
     public addChild(child: Sprite<{}>, position?: number) {
@@ -264,10 +265,68 @@ export class ScrollView extends Sprite<ScrollViewProps> {
         this.beginPos = this.beginPosId = null;
     }
 
+    protected onMouseBeginHandler = (helper: EventHelper) => {
+        if (!this.horizentalScroll && !this.verticalScroll) {
+            return;
+        }
+
+        this.beginPosId = helper.identifier;
+        this.beginPos = { x: helper.stageX, y: helper.stageY };
+
+        if (this.horizentalScroll) {
+            this.touchScrollHorizental.start(helper.stageX);
+        }
+        if (this.verticalScroll) {
+            this.touchScrollVertical.start(helper.stageY);
+        }
+
+        // helper.stopPropagation();
+
+        if (this.stage) {
+            this.stage.on(UIEvent.MOUSE_MOVED, this.onMouseMovedHandler);
+            this.stage.on(UIEvent.MOUSE_ENDED, this.onMouseEndedHandler);
+        }
+    }
+
+    protected onMouseMovedHandler = (helper: EventHelper) => {
+        if (!this.beginPos || helper.identifier !== this.beginPosId) {
+            return;
+        }
+
+        let beginPos = this.beginPos;
+        if (this.horizentalScroll && Math.abs(helper.stageX - beginPos.x) >= ScrollView.scrollThreshold) {
+            this.touchScrollHorizental.update(helper.stageX, this.size.width - this.width, this.scrollPos.x);
+        }
+        if (this.verticalScroll && Math.abs(helper.stageY - beginPos.y) >= ScrollView.scrollThreshold) {
+            this.touchScrollVertical.update(helper.stageY, this.size.height - this.height, this.scrollPos.y);
+        }
+
+        helper.stopPropagation();
+    }
+
+    protected onMouseEndedHandler = (helper: EventHelper) => {
+        if (this.stage) {
+            this.stage.removeListener(UIEvent.MOUSE_MOVED, this.onMouseMovedHandler);
+            this.stage.removeListener(UIEvent.MOUSE_ENDED, this.onMouseEndedHandler);
+        }
+        if (this.horizentalScroll) {
+            this.touchScrollHorizental.finish(this.scrollPos.x, this.size.width - this.width);
+        }
+        if (this.verticalScroll) {
+            this.touchScrollVertical.finish(this.scrollPos.y, this.size.height - this.height);
+        }
+        if (this.beginPos && this.beginPosId === helper.identifier) {
+            helper && helper.stopPropagation();
+        }
+        this.beginPos = this.beginPosId = null;
+    }
+
     public release(recusive?: boolean) {
         if (this.stage) {
             this.stage.removeListener(UIEvent.TOUCH_MOVED, this.onTouchMovedHandler);
             this.stage.removeListener(UIEvent.TOUCH_ENDED, this.onTouchEndedHandler);
+            this.stage.removeListener(UIEvent.MOUSE_MOVED, this.onMouseMovedHandler);
+            this.stage.removeListener(UIEvent.MOUSE_ENDED, this.onMouseEndedHandler);
         }
         this.touchScrollHorizental.release();
         this.touchScrollVertical.release();
