@@ -1,7 +1,8 @@
 import { IComponent, ComponentManager } from './ComponentManager';
 import { VirtualView, ViewManager } from './ViewManager';
 import { Utility } from './Utility';
-import { Parser } from './Parser';
+// import { Parser } from './Parser';
+import { ExpParser } from './ExpParser';
 import { WatcherManager } from './WatcherManager';
 import { EventEmitter } from 'canvas2djs';
 
@@ -48,7 +49,7 @@ export class BindingManager {
                 else if (name[0] === ':') {
                     this.createAttributeBinding(name.slice(1), exp, component, view.instance);
                 }
-                else if (Parser.hasInterpolation(exp)) {
+                else if (ExpParser.hasInterpolation(exp)) {
                     this.createAttributeBinding(name, exp, component, view.instance);
                 }
                 else {
@@ -167,9 +168,9 @@ export class BindingManager {
         if (!hasEmitter && !hasAddListener) {
             return Utility.error(`Could not register event '@${eventName}="${expression}"', the view is not an EventEmitter like object.`, view);
         }
-        let func = Parser.parseToFunction(expression) as Function;
+        let func = ExpParser.parseNormalExp(expression) as Function;
         let handler = (e) => {
-            func.call(component, window, e, view);
+            func.call(component, e, view, window);
         };
         let directive = {
             onDestroy: () => {

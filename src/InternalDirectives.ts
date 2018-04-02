@@ -6,7 +6,8 @@ import { VirtualView, ViewManager } from './ViewManager';
 import { WeakRef } from './WeakRef';
 import { Utility } from './Utility';
 import { TemplateManager } from './TemplateManager';
-import { Parser } from './Parser';
+// import { Parser } from './Parser';
+import { ExpParser } from './ExpParser';
 
 const regParam = /\s+in\s+/;
 const regComma = /\s*,\s*/;
@@ -172,8 +173,8 @@ class ReferenceByKeyDirective implements IDirective {
 class ReferenceByCallbackDirective implements IDirective {
 
     onInit(refExp: string, component: IComponent, view: VirtualView, context) {
-        let func = Parser.parseToFunction(refExp);
-        func.call(component, window, null, view.instance);
+        let func = ExpParser.parseNormalExp(refExp);
+        func.call(component, null, view.instance, window);
     }
 }
 

@@ -1,6 +1,7 @@
 import { Utility } from './Utility';
 import { Observer } from './Observer';
-import { Parser } from './Parser';
+// import { Parser } from './Parser';
+import { ExpParser } from './ExpParser';
 import { Observable } from './Observable';
 import { WatcherManager } from './WatcherManager';
 
@@ -26,8 +27,8 @@ export class Watcher {
         public exp: string,
         public isDeepWatch?: boolean
     ) {
-        this.hasInterpolation = Parser.hasInterpolation(exp);
-        this.valueGetter = this.hasInterpolation ? Parser.parseInterpolationToGetter(exp) : Parser.parseToGetter(exp);
+        this.hasInterpolation = ExpParser.hasInterpolation(exp);
+        this.valueGetter = this.hasInterpolation ? ExpParser.parseInterpolationExp(exp) : ExpParser.parseNormalExp(exp);
 
         this.propertyChanged = this.propertyChanged.bind(this);
         this.value = this.getValue();
@@ -98,7 +99,7 @@ export class Watcher {
     private getValue(): any {
         this.beforeCallValueGetter();
 
-        let newValue = this.valueGetter.call(this.component);
+        let newValue = this.valueGetter.call(this.component, null, null, window);
 
         if (this.isDeepWatch) {
             recusiveVisit(newValue);

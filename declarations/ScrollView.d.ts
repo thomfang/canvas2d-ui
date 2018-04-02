@@ -40,8 +40,10 @@ export declare class ScrollView extends Sprite<ScrollViewProps> {
     protected notifyResizeParent(): void;
     protected updateView(): void;
     protected fixScrollPosition(): void;
-    protected onUpdateHorizentalScroll: (scrollX: number) => void;
     protected updateItemVisible(): void;
+    setScrollerX(scrollX: number): void;
+    setScrollerY(scrollY: number): void;
+    protected onUpdateHorizentalScroll: (scrollX: number) => void;
     protected onUpdateVerticalScroll: (scrollY: number) => void;
     protected onTouchBeginHandler: (helpers: EventHelper[]) => void;
     protected onTouchMovedHandler: (helpers: EventHelper[]) => void;

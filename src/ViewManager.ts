@@ -1,6 +1,7 @@
 import { Sprite, TextLabel, ITextLabel, BMFontLabel, SpriteProps, Action, ActionQueue, ActionRepeatMode } from 'canvas2djs';
 import { Utility } from './Utility';
-import { Parser } from './Parser';
+// import { Parser } from './Parser';
+import { ExpParser } from './ExpParser';
 import { ComponentManager, IComponent } from './ComponentManager';
 import { TemplateManager } from './TemplateManager';
 import { StyleManager, ActionStyle } from './StyleManager';
@@ -33,18 +34,6 @@ export class ViewManager {
         if (ctor != null) {
             return this.createSprite(node, new ctor());
         }
-        // if (node.tag === "sprite") {
-        //     return this.createSprite(node, new Sprite());
-        // }
-        // if (node.tag === 'ScrollView') {
-        //     return this.createSprite(node, new ScrollView());
-        // }
-        // if (node.tag === 'AutoLayoutView') {
-        //     return this.createSprite(node, new AutoLayoutView());
-        // }
-        // if (node.tag === 'AutoResizeView') {
-        //     return this.createSprite(node, new AutoResizeView());
-        // }
         if (node.tag === "text" || node.tag === "bmfont") {
             return this.createTextLabel(node);
         }
@@ -59,7 +48,7 @@ export class ViewManager {
             let directives: { [name: string]: any };
             for (let name in node.attr) {
                 let value = node.attr[name];
-                if (BindingManager.isRegisteredDirective(name) || reBindableAttr.test(name) || Parser.hasInterpolation(value)) {
+                if (BindingManager.isRegisteredDirective(name) || reBindableAttr.test(name) || ExpParser.hasInterpolation(value)) {
                     if (!directives) {
                         directives = {};
                     }
@@ -95,7 +84,7 @@ export class ViewManager {
             let directives: { [name: string]: any };
             for (let name in node.attr) {
                 let value = node.attr[name];
-                if (BindingManager.isRegisteredDirective(name) || reBindableAttr.test(name) || Parser.hasInterpolation(value)) {
+                if (BindingManager.isRegisteredDirective(name) || reBindableAttr.test(name) || ExpParser.hasInterpolation(value)) {
                     if (!directives) {
                         directives = {};
                     }
@@ -116,7 +105,7 @@ export class ViewManager {
                 }
                 return child.text;
             }).join("");
-            if (Parser.hasInterpolation(content)) {
+            if (ExpParser.hasInterpolation(content)) {
                 if (!view.directives) {
                     view.directives = {};
                 }
@@ -138,7 +127,7 @@ export class ViewManager {
             let directives: { [name: string]: any };
             for (let name in node.attr) {
                 let value = node.attr[name];
-                if (BindingManager.isRegisteredDirective(name) || reBindableAttr.test(name) || Parser.hasInterpolation(value)) {
+                if (BindingManager.isRegisteredDirective(name) || reBindableAttr.test(name) || ExpParser.hasInterpolation(value)) {
                     if (!directives) {
                         directives = {};
                     }

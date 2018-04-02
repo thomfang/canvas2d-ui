@@ -1,5 +1,5 @@
 /**
- * canvas2d-ui v1.2.0
+ * canvas2d-ui v1.2.1
  * Copyright (c) 2017-present Todd Fon <tilfon9017@gmail.com>
  * All rights reserved.
  */
@@ -678,76 +678,159 @@ var ObservableObject = (function () {
     return ObservableObject;
 }());
 
-var nameOfEvent = "$event";
-var nameOfGlobal = "$global";
-var nameOfElement = "$element";
+var GlobalName = "$global";
+var EventName = "$event";
+var ElementName = "$element";
+var ContextName = "this";
+var reservedKeywords = [
+    'break', 'case', 'catch', 'continue', 'debugger', 'default', 'delete', 'do',
+    'else', 'finally', 'for', 'function', 'if', 'in', 'instanceof', 'new', 'return',
+    'switch', 'this', 'throw', 'try', 'typeof', 'var', 'void', 'while',
+    'class', 'null', 'undefined', 'true', 'false', 'with', EventName, ElementName, GlobalName,
+    'let', 'abstract', 'import', 'yield', 'arguments'
+];
+var normalExpGetter = {};
+var interpolationExpGetter = {};
+var identifierCache = {};
+var reIdentifier = /("|').*?\1|[a-zA-Z$_][a-z0-9A-Z$_]*/g;
 var reInterpolation = /\{\{((.|\n)+?)\}\}/g;
-var Parser = (function () {
-    function Parser() {
-    }
-    Parser.parseToGetter = function (exp) {
-        if (!/\S+/.test(exp)) {
-            return Utility.error("Invalid expression \"" + exp + "\" for parsing to a getter.");
-        }
-        try {
-            return new Function("try{with(this) {return " + exp + "}}catch(e){ }");
-        }
-        catch (e) {
-            Utility.error("Error parsing expression \"" + exp + "\" to a getter,", e);
-        }
-    };
-    Parser.parseToSetter = function (exp) {
-        if (!/\S+/.test(exp)) {
-            return Utility.error("Invalid expression \"" + exp + "\" for parsing to a setter.");
-        }
-        try {
-            return new Function("__setterValue__", "try{with(this) {return " + exp + " = __setterValue__}}catch(e){ }");
-        }
-        catch (e) {
-            Utility.error("Error parsing expression \"" + exp + "\" to a setter,", e);
-        }
-    };
-    Parser.hasInterpolation = function (str) {
-        return typeof str === 'string' && str.match(reInterpolation) !== null;
-    };
-    Parser.parseInterpolationToGetter = function (expression) {
-        if (!this.hasInterpolation(expression)) {
-            return Utility.error("Expression \"" + expression + " has no interpolation value.\"");
-        }
-        var tokens = [];
-        var index = 0;
-        var str = expression.trim();
-        var length = str.length;
-        str.replace(reInterpolation, function ($0, exp, $2, i) {
-            if (i > index) {
-                tokens.push("\"" + str.slice(index, i) + "\"");
+var reObjectKey = /[{,]\s*$/;
+var reColon = /^\s*:/;
+var reAnychar = /\S+/;
+function isObjectKey(str) {
+    return str.match(reObjectKey) != null;
+}
+function isColon(str) {
+    return str.match(reColon) != null;
+}
+function parseIdentifier(str) {
+    var cache = identifierCache[str];
+    if (!cache) {
+        var index_1 = 0;
+        var identifiers_1 = [];
+        var formated = str.replace(reIdentifier, function (x, p, i) {
+            if (p === '"' || p === "'" || str[i - 1] === '.' || (x[0] === 'x' && str[i - 1] === '0')) {
+                // 如果是字符串: "aaa"
+                // 或对象的属性: .aaa
+                index_1 = i + x.length;
+                return x;
             }
-            tokens.push('(' + exp.trim() + ')');
-            index = i + $0.length;
-            return $0;
+            var prevStr = str.slice(index_1, i); // 前一个字符
+            var nextStr = str.slice(i + x.length); // 后一个字符
+            index_1 = i + x.length;
+            if (isColon(nextStr) && isObjectKey(prevStr)) {
+                // 如果前一个字符是冒号，再判断是否是对象的Key
+                return x;
+            }
+            if (reservedKeywords.indexOf(x) > -1) {
+                // 如果是保留关键字直接返回原字符串
+                return x;
+            }
+            // if (isCallFunction(nextStr)) {
+            //     // 如果后面有连续的字符是一对括号则为方法调用
+            //     // method(a) 会转成 this.method(a)
+            //     return contextName + '.' + x;
+            // }
+            if (identifiers_1.indexOf(x) < 0) {
+                // 标记未添加到列表
+                identifiers_1.push(x);
+            }
+            // 否则为属性访问， 直接加上下文
+            // a 转成  this.a
+            return ContextName + '.' + x;
         });
-        if (index < length && index !== 0) {
-            tokens.push("\"" + str.slice(index) + "\"");
+        cache = {
+            formated: formated,
+            identifiers: identifiers_1
+        };
+        identifierCache[str] = cache;
+    }
+    return cache;
+}
+function createFunction(expression) {
+    var args = [];
+    for (var _i = 1; _i < arguments.length; _i++) {
+        args[_i - 1] = arguments[_i];
+    }
+    try {
+        return Function.apply(Function, args);
+    }
+    catch (err) {
+        Utility.error("Error in parsing expression \"" + expression + "\":\n", args[args.length - 1]);
+    }
+}
+function fixExpression(exp) {
+    return exp.trim().replace(/\r\n/g, ' ');
+}
+var ExpParser = (function () {
+    function ExpParser() {
+    }
+    ExpParser.registerParsedExp = function (map) {
+        if (map.normal) {
+            Object.keys(map.normal).forEach(function (exp) {
+                var fn = map.normal[exp];
+                if (!normalExpGetter[exp] && fn != null) {
+                    normalExpGetter[exp] = fn;
+                }
+            });
         }
-        try {
-            return new Function("try{with(this) {return " + tokens.join('+') + "}}catch(e){ }");
-        }
-        catch (e) {
-            Utility.error("Error parsing expression \"" + expression + "\" to an interpolation getter, ", e);
+        if (map.interpolation) {
+            Object.keys(map.interpolation).forEach(function (exp) {
+                var fn = map.interpolation[exp];
+                if (!interpolationExpGetter[exp] && fn != null) {
+                    interpolationExpGetter[exp] = fn;
+                }
+            });
         }
     };
-    Parser.parseToFunction = function (exp) {
-        if (!/\S+/.test(exp)) {
-            return Utility.error("Invalid expression \"" + exp + "\" for parsing to a handler.");
+    ExpParser.parseNormalExp = function (expression) {
+        if (!(typeof expression === 'string' && reAnychar.test(expression))) {
+            Utility.error("[parseNormalExp]Invalid expression, empty string \"" + expression + "\"");
+            return;
         }
-        try {
-            return new Function(nameOfGlobal, nameOfEvent, nameOfElement, "try{ with (this) { " + exp + " } } catch (e) {  } ");
+        expression = fixExpression(expression);
+        var fn = normalExpGetter[expression];
+        if (!fn) {
+            var detail = parseIdentifier(expression);
+            var fnBody = "try{" + (detail.formated.trim().match(';$') ? detail.formated : "return (" + detail.formated + ");") + "}catch(e){}";
+            fn = createFunction(expression, EventName, ElementName, GlobalName, fnBody);
+            normalExpGetter[expression] = fn;
         }
-        catch (e) {
-            Utility.error("Error parsing expression \"" + exp + "\" to a handler, ", e);
-        }
+        return fn;
     };
-    return Parser;
+    ExpParser.parseInterpolationExp = function (expression) {
+        console.assert(this.hasInterpolation(expression), "[parseInterpolationToGetter] error", expression);
+        expression = fixExpression(expression);
+        var getter = interpolationExpGetter[expression];
+        if (!getter) {
+            var tokens_1 = [];
+            var index_2 = 0;
+            var length = expression.length;
+            expression.replace(reInterpolation, function ($0, exp, $2, i) {
+                if (i > index_2) {
+                    tokens_1.push("\"" + expression.slice(index_2, i).split(/\r\n/).join('"+"') + "\"");
+                }
+                tokens_1.push(parseIdentifier(exp.trim()).formated);
+                index_2 = i + $0.length;
+                return $0;
+            });
+            if (index_2 < length && index_2 !== 0) {
+                tokens_1.push("\"" + expression.slice(index_2).split(/\r\n/).join('"+"') + "\"");
+            }
+            if (!tokens_1.length) {
+                return;
+            }
+            var fnBody = "try{return (" + tokens_1.join('+') + ")}catch(e){}";
+            getter = interpolationExpGetter[expression] = createFunction(expression, EventName, ElementName, GlobalName, fnBody);
+        }
+        return getter;
+    };
+    ExpParser.hasInterpolation = function (str) {
+        return typeof str === 'string' && str.match(reAnychar) !== null && str.match(reInterpolation) !== null;
+    };
+    ExpParser.normalExpGetter = normalExpGetter;
+    ExpParser.interpolationExpGetter = interpolationExpGetter;
+    return ExpParser;
 }());
 
 // Regular Expressions for parsing tags and attributes
@@ -1026,6 +1109,7 @@ var StyleManager = (function () {
     return StyleManager;
 }());
 
+// import { Parser } from './Parser';
 var reBindableAttr = /^[:@]/;
 var ViewManager = (function () {
     function ViewManager() {
@@ -1049,18 +1133,6 @@ var ViewManager = (function () {
         if (ctor != null) {
             return this.createSprite(node, new ctor());
         }
-        // if (node.tag === "sprite") {
-        //     return this.createSprite(node, new Sprite());
-        // }
-        // if (node.tag === 'ScrollView') {
-        //     return this.createSprite(node, new ScrollView());
-        // }
-        // if (node.tag === 'AutoLayoutView') {
-        //     return this.createSprite(node, new AutoLayoutView());
-        // }
-        // if (node.tag === 'AutoResizeView') {
-        //     return this.createSprite(node, new AutoResizeView());
-        // }
         if (node.tag === "text" || node.tag === "bmfont") {
             return this.createTextLabel(node);
         }
@@ -1073,7 +1145,7 @@ var ViewManager = (function () {
             var directives = void 0;
             for (var name in node.attr) {
                 var value = node.attr[name];
-                if (BindingManager.isRegisteredDirective(name) || reBindableAttr.test(name) || Parser.hasInterpolation(value)) {
+                if (BindingManager.isRegisteredDirective(name) || reBindableAttr.test(name) || ExpParser.hasInterpolation(value)) {
                     if (!directives) {
                         directives = {};
                     }
@@ -1105,7 +1177,7 @@ var ViewManager = (function () {
             var directives = void 0;
             for (var name in node.attr) {
                 var value = node.attr[name];
-                if (BindingManager.isRegisteredDirective(name) || reBindableAttr.test(name) || Parser.hasInterpolation(value)) {
+                if (BindingManager.isRegisteredDirective(name) || reBindableAttr.test(name) || ExpParser.hasInterpolation(value)) {
                     if (!directives) {
                         directives = {};
                     }
@@ -1126,7 +1198,7 @@ var ViewManager = (function () {
                 }
                 return child.text;
             }).join("");
-            if (Parser.hasInterpolation(content)) {
+            if (ExpParser.hasInterpolation(content)) {
                 if (!view.directives) {
                     view.directives = {};
                 }
@@ -1147,7 +1219,7 @@ var ViewManager = (function () {
             var directives = void 0;
             for (var name in node.attr) {
                 var value = node.attr[name];
-                if (BindingManager.isRegisteredDirective(name) || reBindableAttr.test(name) || Parser.hasInterpolation(value)) {
+                if (BindingManager.isRegisteredDirective(name) || reBindableAttr.test(name) || ExpParser.hasInterpolation(value)) {
                     if (!directives) {
                         directives = {};
                     }
@@ -1311,6 +1383,7 @@ var ViewManager = (function () {
     return ViewManager;
 }());
 
+// import { Parser } from './Parser';
 var Watcher = (function () {
     function Watcher(component, exp, isDeepWatch) {
         this.component = component;
@@ -1320,8 +1393,8 @@ var Watcher = (function () {
         this.observers = {};
         this.properties = {};
         this.isActived = true;
-        this.hasInterpolation = Parser.hasInterpolation(exp);
-        this.valueGetter = this.hasInterpolation ? Parser.parseInterpolationToGetter(exp) : Parser.parseToGetter(exp);
+        this.hasInterpolation = ExpParser.hasInterpolation(exp);
+        this.valueGetter = this.hasInterpolation ? ExpParser.parseInterpolationExp(exp) : ExpParser.parseNormalExp(exp);
         this.propertyChanged = this.propertyChanged.bind(this);
         this.value = this.getValue();
     }
@@ -1381,7 +1454,7 @@ var Watcher = (function () {
     };
     Watcher.prototype.getValue = function () {
         this.beforeCallValueGetter();
-        var newValue = this.valueGetter.call(this.component);
+        var newValue = this.valueGetter.call(this.component, null, null, window);
         if (this.isDeepWatch) {
             recusiveVisit(newValue);
         }
@@ -1504,6 +1577,7 @@ var WatcherManager = (function () {
     return WatcherManager;
 }());
 
+// import { Parser } from './Parser';
 var BindingManager = (function () {
     function BindingManager() {
     }
@@ -1542,7 +1616,7 @@ var BindingManager = (function () {
                 else if (name[0] === ':') {
                     this.createAttributeBinding(name.slice(1), exp, component, view.instance);
                 }
-                else if (Parser.hasInterpolation(exp)) {
+                else if (ExpParser.hasInterpolation(exp)) {
                     this.createAttributeBinding(name, exp, component, view.instance);
                 }
                 else {
@@ -1652,9 +1726,9 @@ var BindingManager = (function () {
         if (!hasEmitter && !hasAddListener) {
             return Utility.error("Could not register event '@" + eventName + "=\"" + expression + "\"', the view is not an EventEmitter like object.", view);
         }
-        var func = Parser.parseToFunction(expression);
+        var func = ExpParser.parseNormalExp(expression);
         var handler = function (e) {
-            func.call(component, window, e, view);
+            func.call(component, e, view, window);
         };
         var directive = {
             onDestroy: function () {
@@ -2853,26 +2927,10 @@ var ScrollView = (function (_super) {
         if (props === void 0) { props = {}; }
         var _this = _super.call(this, __assign({}, props, { clipOverflow: true })) || this;
         _this.onUpdateHorizentalScroll = function (scrollX) {
-            _this.scroller.x = -scrollX;
-            _this.scrollPos.x = scrollX;
-            _this.updateItemVisible();
-            var pos = {
-                x: _this.scrollPos.x,
-                y: _this.scrollPos.y,
-            };
-            _this.onScroll && _this.onScroll(pos);
-            _this.emit(ScrollView_1.SCROLL, pos);
+            _this.setScrollerX(scrollX);
         };
         _this.onUpdateVerticalScroll = function (scrollY) {
-            _this.scroller.y = -scrollY;
-            _this.scrollPos.y = scrollY;
-            _this.updateItemVisible();
-            var pos = {
-                x: _this.scrollPos.x,
-                y: _this.scrollPos.y,
-            };
-            _this.onScroll && _this.onScroll(pos);
-            _this.emit(ScrollView_1.SCROLL, pos);
+            _this.setScrollerY(scrollY);
         };
         _this.onTouchBeginHandler = function (helpers) {
             if (!_this.horizentalScroll && !_this.verticalScroll) {
@@ -3097,6 +3155,28 @@ var ScrollView = (function (_super) {
                 }
             }
         }
+    };
+    ScrollView.prototype.setScrollerX = function (scrollX) {
+        this.scroller.x = -scrollX;
+        this.scrollPos.x = scrollX;
+        this.updateItemVisible();
+        var pos = {
+            x: this.scrollPos.x,
+            y: this.scrollPos.y,
+        };
+        this.onScroll && this.onScroll(pos);
+        this.emit(ScrollView_1.SCROLL, pos);
+    };
+    ScrollView.prototype.setScrollerY = function (scrollY) {
+        this.scroller.y = -scrollY;
+        this.scrollPos.y = scrollY;
+        this.updateItemVisible();
+        var pos = {
+            x: this.scrollPos.x,
+            y: this.scrollPos.y,
+        };
+        this.onScroll && this.onScroll(pos);
+        this.emit(ScrollView_1.SCROLL, pos);
     };
     ScrollView.prototype.release = function (recusive) {
         if (this.stage) {
@@ -3775,6 +3855,7 @@ var WeakRef = (function () {
     return WeakRef;
 }());
 
+// import { Parser } from './Parser';
 var regParam = /\s+in\s+/;
 var regComma = /\s*,\s*/;
 var regTrackby = /trackby\s+(\w+)/;
@@ -3925,8 +4006,8 @@ var ReferenceByCallbackDirective = (function () {
     function ReferenceByCallbackDirective() {
     }
     ReferenceByCallbackDirective.prototype.onInit = function (refExp, component, view, context) {
-        var func = Parser.parseToFunction(refExp);
-        func.call(component, window, null, view.instance);
+        var func = ExpParser.parseNormalExp(refExp);
+        func.call(component, null, view.instance, window);
     };
     ReferenceByCallbackDirective = __decorate([
         Directive("@ref")
@@ -4182,7 +4263,7 @@ exports.Observable = Observable;
 exports.ObservableArray = ObservableArray;
 exports.ObservableObject = ObservableObject;
 exports.Observer = Observer;
-exports.Parser = Parser;
+exports.ExpParser = ExpParser;
 exports.Watcher = Watcher;
 exports.Application = Application;
 exports.Loader = Loader;

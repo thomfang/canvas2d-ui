@@ -11,7 +11,7 @@ export * from './Observable';
 export * from './ObservableArray';
 export * from './ObservableObject';
 export * from './Observer';
-export * from './Parser';
+export * from './ExpParser';
 export * from './Watcher';
 export * from './Application';
 export * from './Loader';

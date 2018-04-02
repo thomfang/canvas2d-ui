@@ -7,23 +7,35 @@ const reInterpolation = /\{\{((.|\n)+?)\}\}/g;
 
 export class Parser {
 
+    private static getterMap: { [key: string]: Function } = {};
+    private static setterMap: { [key: string]: Function } = {};
+    private static interpolationMap: { [key: string]: Function } = {};
+
     public static parseToGetter(exp: string) {
+        exp = exp.trim();
+        if (this.getterMap[exp]) {
+            return this.getterMap[exp];
+        }
         if (!/\S+/.test(exp)) {
             return Utility.error(`Invalid expression "${exp}" for parsing to a getter.`);
         }
         try {
-            return new Function(`try{with(this) {return ${exp}}}catch(e){ }`);
+            return this.getterMap[exp] = new Function(`try{with(this) {return ${exp}}}catch(e){ }`);
         } catch (e) {
             Utility.error(`Error parsing expression "${exp}" to a getter,`, e);
         }
     }
 
     public static parseToSetter(exp: string) {
+        exp = exp.trim();
+        if (this.setterMap[exp]) {
+            return this.setterMap[exp];
+        }
         if (!/\S+/.test(exp)) {
             return Utility.error(`Invalid expression "${exp}" for parsing to a setter.`);
         }
         try {
-            return new Function("__setterValue__", `try{with(this) {return ${exp} = __setterValue__}}catch(e){ }`);
+            return this.setterMap[exp] = new Function("__setterValue__", `try{with(this) {return ${exp} = __setterValue__}}catch(e){ }`);
         } catch (e) {
             Utility.error(`Error parsing expression "${exp}" to a setter,`, e);
         }
@@ -34,6 +46,9 @@ export class Parser {
     }
 
     public static parseInterpolationToGetter(expression: string) {
+        if (this.interpolationMap[expression]) {
+            return this.interpolationMap[expression];
+        }
         if (!this.hasInterpolation(expression)) {
             return Utility.error(`Expression "${expression} has no interpolation value."`);
         }
@@ -57,7 +72,7 @@ export class Parser {
         }
 
         try {
-            return new Function(`try{with(this) {return ${tokens.join('+')}}}catch(e){ }`);
+            return this.interpolationMap[str] = new Function(`try{with(this) {return ${tokens.join('+')}}}catch(e){ }`);
         } catch (e) {
             Utility.error(`Error parsing expression "${expression}" to an interpolation getter, `, e);
         }

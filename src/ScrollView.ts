@@ -156,18 +156,6 @@ export class ScrollView extends Sprite<ScrollViewProps> {
         }
     }
 
-    protected onUpdateHorizentalScroll = (scrollX: number) => {
-        this.scroller.x = -scrollX;
-        this.scrollPos.x = scrollX;
-        this.updateItemVisible();
-        let pos = {
-            x: this.scrollPos.x,
-            y: this.scrollPos.y,
-        }
-        this.onScroll && this.onScroll(pos);
-        this.emit(ScrollView.SCROLL, pos);
-    }
-
     protected updateItemVisible() {
         let children = this.scroller.children;
         let x = this.scroller.x;
@@ -190,7 +178,19 @@ export class ScrollView extends Sprite<ScrollViewProps> {
         }
     }
 
-    protected onUpdateVerticalScroll = (scrollY: number) => {
+    public setScrollerX(scrollX: number) {
+        this.scroller.x = -scrollX;
+        this.scrollPos.x = scrollX;
+        this.updateItemVisible();
+        let pos = {
+            x: this.scrollPos.x,
+            y: this.scrollPos.y,
+        }
+        this.onScroll && this.onScroll(pos);
+        this.emit(ScrollView.SCROLL, pos);
+    }
+
+    public setScrollerY(scrollY: number) {
         this.scroller.y = -scrollY;
         this.scrollPos.y = scrollY;
         this.updateItemVisible();
@@ -200,6 +200,14 @@ export class ScrollView extends Sprite<ScrollViewProps> {
         }
         this.onScroll && this.onScroll(pos);
         this.emit(ScrollView.SCROLL, pos);
+    }
+
+    protected onUpdateHorizentalScroll = (scrollX: number) => {
+        this.setScrollerX(scrollX);
+    }
+
+    protected onUpdateVerticalScroll = (scrollY: number) => {
+        this.setScrollerY(scrollY);
     }
 
     protected onTouchBeginHandler = (helpers: EventHelper[]) => {
