@@ -163,7 +163,7 @@ export class ExpParser {
                 if (i > index) {
                     tokens.push(`"${expression.slice(index, i).split(/\r\n/).join('"+"')}"`);
                 }
-                tokens.push(parseIdentifier(exp.trim()).formated);
+                tokens.push('(' + parseIdentifier(exp.trim()).formated + ')');
                 index = i + $0.length;
 
                 return $0;

@@ -1,5 +1,5 @@
 /**
- * canvas2d-ui v1.2.1
+ * canvas2d-ui v1.2.2
  * Copyright (c) 2017-present Todd Fon <tilfon9017@gmail.com>
  * All rights reserved.
  */
@@ -810,7 +810,7 @@ var ExpParser = (function () {
                 if (i > index_2) {
                     tokens_1.push("\"" + expression.slice(index_2, i).split(/\r\n/).join('"+"') + "\"");
                 }
-                tokens_1.push(parseIdentifier(exp.trim()).formated);
+                tokens_1.push('(' + parseIdentifier(exp.trim()).formated + ')');
                 index_2 = i + $0.length;
                 return $0;
             });
