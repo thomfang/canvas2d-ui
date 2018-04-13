@@ -102,7 +102,7 @@ function createFunction(expression, ...args: Array<string>): any {
 }
 
 function fixExpression(exp: string) {
-    return exp.trim().replace(/\r\n/g, ' ');
+    return exp.trim().replace(/\r\n|\n/g, ' ');
 }
 
 export class ExpParser {
@@ -161,7 +161,7 @@ export class ExpParser {
             let length = expression.length;
             expression.replace(reInterpolation, ($0, exp, $2, i) => {
                 if (i > index) {
-                    tokens.push(`"${expression.slice(index, i).split(/\r\n/).join('"+"')}"`);
+                    tokens.push(`"${expression.slice(index, i).split(/\r\n|\n/).join('"+"')}"`);
                 }
                 tokens.push('(' + parseIdentifier(exp.trim()).formated + ')');
                 index = i + $0.length;
@@ -170,7 +170,7 @@ export class ExpParser {
             });
 
             if (index < length && index !== 0) {
-                tokens.push(`"${expression.slice(index).split(/\r\n/).join('"+"')}"`);
+                tokens.push(`"${expression.slice(index).split(/\r\n|\n/).join('"+"')}"`);
             }
 
             if (!tokens.length) {

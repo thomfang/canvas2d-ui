@@ -1,5 +1,5 @@
 /**
- * canvas2d-ui v1.2.2
+ * canvas2d-ui v1.2.3
  * Copyright (c) 2017-present Todd Fon <tilfon9017@gmail.com>
  * All rights reserved.
  */
@@ -760,7 +760,7 @@ function createFunction(expression) {
     }
 }
 function fixExpression(exp) {
-    return exp.trim().replace(/\r\n/g, ' ');
+    return exp.trim().replace(/\r\n|\n/g, ' ');
 }
 var ExpParser = (function () {
     function ExpParser() {
@@ -808,14 +808,14 @@ var ExpParser = (function () {
             var length = expression.length;
             expression.replace(reInterpolation, function ($0, exp, $2, i) {
                 if (i > index_2) {
-                    tokens_1.push("\"" + expression.slice(index_2, i).split(/\r\n/).join('"+"') + "\"");
+                    tokens_1.push("\"" + expression.slice(index_2, i).split(/\r\n|\n/).join('"+"') + "\"");
                 }
                 tokens_1.push('(' + parseIdentifier(exp.trim()).formated + ')');
                 index_2 = i + $0.length;
                 return $0;
             });
             if (index_2 < length && index_2 !== 0) {
-                tokens_1.push("\"" + expression.slice(index_2).split(/\r\n/).join('"+"') + "\"");
+                tokens_1.push("\"" + expression.slice(index_2).split(/\r\n|\n/).join('"+"') + "\"");
             }
             if (!tokens_1.length) {
                 return;
